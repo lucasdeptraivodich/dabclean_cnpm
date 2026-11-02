@@ -307,13 +307,6 @@
 
       async getAllReviews(limit = 10) {
         return await request(`/bookings/reviews/all?limit=${limit}`);
-      },
-
-      async getQuote(quoteData) {
-        return await request('/bookings/quote', {
-          method: 'POST',
-          body: JSON.stringify(quoteData)
-        });
       }
     },
 

@@ -387,7 +387,7 @@ const bookingController = {
 
       const newBooking = (await BookingModel.getById(bookingId)) || {
         id: bookingId,
-        booking_code: bookingCode,
+        booking_code: booking_code,
         service_id,
         user_id: req.user ? req.user.id : null,
         address,

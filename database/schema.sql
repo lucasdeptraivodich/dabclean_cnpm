@@ -254,6 +254,10 @@ CREATE TABLE partner_applications (
   experience VARCHAR(100) DEFAULT NULL COMMENT 'Kinh nghiệm làm việc',
   available_hours VARCHAR(100) DEFAULT NULL COMMENT 'Khung giờ có thể làm việc',
   bio TEXT DEFAULT NULL COMMENT 'Giới thiệu ngắn về bản thân & kỹ năng',
+  terms_version VARCHAR(20) NOT NULL DEFAULT '1.0' COMMENT 'Phiên bản Điều khoản đối tác',
+  privacy_version VARCHAR(20) NOT NULL DEFAULT '1.0' COMMENT 'Phiên bản Chính sách bảo mật',
+  terms_accepted_at TIMESTAMP NULL DEFAULT CURRENT_TIMESTAMP COMMENT 'Thời điểm đồng ý điều khoản',
+  marketing_consent TINYINT(1) NOT NULL DEFAULT 0 COMMENT 'Đồng ý nhận tin tức & chính sách (1: có, 0: không)',
   status ENUM('pending', 'approved', 'rejected') DEFAULT 'pending' COMMENT 'Trạng thái: pending (chờ duyệt), approved (đã duyệt), rejected (từ chối)',
   rejection_reason TEXT DEFAULT NULL COMMENT 'Lý do từ chối (nếu có)',
   reviewed_by INT DEFAULT NULL COMMENT 'Admin ID đã duyệt',
@@ -409,25 +413,24 @@ CREATE TABLE staff_commission_payments (
 CREATE TABLE vouchers (
   id INT AUTO_INCREMENT PRIMARY KEY,
   code VARCHAR(50) NOT NULL UNIQUE COMMENT 'Mã voucher (VD: DABCLEAN20, CLEAN50K)',
-  title VARCHAR(150) NOT NULL COMMENT 'Tên hiển thị của voucher',
-  description TEXT DEFAULT NULL COMMENT 'Chi tiết điều kiện áp dụng',
-  discount_type ENUM('percent', 'fixed') NOT NULL DEFAULT 'percent' COMMENT 'Loại giảm giá: percent (phần trăm) hoặc fixed (số tiền cố định)',
+  title VARCHAR(150) DEFAULT NULL COMMENT 'Tên hiển thị của voucher',
+  description VARCHAR(255) DEFAULT NULL COMMENT 'Chi tiết điều kiện áp dụng',
+  discount_type ENUM('percentage', 'fixed') NOT NULL DEFAULT 'percentage' COMMENT 'Loại giảm giá: percentage (phần trăm) hoặc fixed (số tiền cố định)',
   discount_value DECIMAL(12, 2) NOT NULL COMMENT 'Giá trị giảm (% hoặc VNĐ)',
   max_discount_amount DECIMAL(12, 2) DEFAULT NULL COMMENT 'Mức giảm tối đa nếu tính theo % (VNĐ)',
-  min_order_value DECIMAL(12, 2) NOT NULL DEFAULT 0.00 COMMENT 'Giá trị đơn tối thiểu để áp dụng (VNĐ)',
-  usage_limit INT DEFAULT NULL COMMENT 'Tổng số lượt sử dụng tối đa toàn hệ thống (NULL: không giới hạn)',
+  min_order_amount DECIMAL(12, 2) NOT NULL DEFAULT 0.00 COMMENT 'Giá trị đơn tối thiểu để áp dụng (VNĐ)',
+  applicable_services JSON DEFAULT NULL COMMENT 'Danh sách ID dịch vụ áp dụng dạng JSON (NULL: tất cả dịch vụ)',
+  start_date DATETIME NOT NULL COMMENT 'Thời điểm bắt đầu hiệu lực',
+  end_date DATETIME NOT NULL COMMENT 'Thời điểm hết hạn',
+  usage_limit INT NOT NULL DEFAULT 100 COMMENT 'Tổng số lượt sử dụng tối đa toàn hệ thống (NULL/0: không giới hạn)',
   used_count INT NOT NULL DEFAULT 0 COMMENT 'Số lượt đã sử dụng thực tế',
-  user_limit INT NOT NULL DEFAULT 1 COMMENT 'Số lượt dùng tối đa / 1 tài khoản khách hàng',
-  applicable_service_id INT DEFAULT NULL COMMENT 'Dịch vụ áp dụng (NULL: tất cả dịch vụ)',
+  per_user_limit INT NOT NULL DEFAULT 1 COMMENT 'Số lượt dùng tối đa / 1 tài khoản khách hàng',
   allow_periodic TINYINT(1) NOT NULL DEFAULT 0 COMMENT 'Cho phép dùng với gói định kỳ: 1 (có), 0 (chỉ đơn 1 lần)',
-  start_date DATETIME DEFAULT NULL COMMENT 'Thời điểm bắt đầu hiệu lực',
-  end_date DATETIME DEFAULT NULL COMMENT 'Thời điểm hết hạn',
   is_active TINYINT(1) NOT NULL DEFAULT 1 COMMENT 'Trạng thái: 1 (kích hoạt), 0 (tạm ngưng)',
   created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
   updated_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP,
   INDEX idx_vouchers_code (code),
-  INDEX idx_vouchers_active (is_active),
-  CONSTRAINT fk_vouchers_service FOREIGN KEY (applicable_service_id) REFERENCES services(id) ON DELETE SET NULL
+  INDEX idx_vouchers_active (is_active)
 ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci;
 
 -- ------------------------------------------------------------
@@ -438,12 +441,12 @@ CREATE TABLE voucher_usages (
   voucher_id INT NOT NULL,
   user_id INT NOT NULL,
   booking_id INT NOT NULL,
-  discount_amount DECIMAL(12, 2) NOT NULL,
+  discount_applied DECIMAL(12, 2) NOT NULL COMMENT 'Số tiền giảm giá thực tế áp dụng',
   used_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
   UNIQUE KEY uq_voucher_user_booking (voucher_id, user_id, booking_id),
   INDEX idx_voucher_user (voucher_id, user_id),
-  CONSTRAINT fk_vu_voucher FOREIGN KEY (voucher_id) REFERENCES vouchers(id) ON DELETE RESTRICT,
-  CONSTRAINT fk_vu_user FOREIGN KEY (user_id) REFERENCES users(id) ON DELETE RESTRICT,
+  CONSTRAINT fk_vu_voucher FOREIGN KEY (voucher_id) REFERENCES vouchers(id) ON DELETE CASCADE,
+  CONSTRAINT fk_vu_user FOREIGN KEY (user_id) REFERENCES users(id) ON DELETE CASCADE,
   CONSTRAINT fk_vu_booking FOREIGN KEY (booking_id) REFERENCES bookings(id) ON DELETE CASCADE
 ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci;
 

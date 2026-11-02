@@ -84,10 +84,17 @@ function initSocket(server) {
       }
     });
 
-    // Lắng nghe sự kiện tham gia theo dõi đơn hàng cụ thể
-    socket.on('join_booking', (bookingId) => {
-      if (bookingId) {
-        socket.join(`booking_${bookingId}`);
+    // Lắng nghe sự kiện tham gia theo dõi đơn hàng cụ thể (Xác thực quyền sở hữu tránh rò rỉ dữ liệu)
+    socket.on('join_booking', async (bookingId) => {
+      if (!bookingId || !socket.user) return;
+      try {
+        const BookingModel = require('../models/bookingModel');
+        const booking = await BookingModel.getById(bookingId);
+        if (booking && (booking.user_id === socket.user.id || booking.staff_id === socket.user.id || socket.user.role === 'admin')) {
+          socket.join(`booking_${bookingId}`);
+        }
+      } catch (e) {
+        // Bỏ qua lỗi truy vấn an toàn
       }
     });
 

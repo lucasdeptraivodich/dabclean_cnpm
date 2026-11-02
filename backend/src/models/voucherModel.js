@@ -11,7 +11,7 @@ const VoucherModel = {
       `SELECT id, code, discount_type, discount_value, max_discount_amount, min_order_amount,
               applicable_services, start_date, end_date, usage_limit, used_count, per_user_limit, description
        FROM vouchers
-       WHERE is_active = 1 AND start_date <= ? AND end_date >= ? AND used_count < usage_limit
+       WHERE is_active = 1 AND start_date <= ? AND end_date >= ? AND (usage_limit IS NULL OR usage_limit = 0 OR used_count < usage_limit)
        ORDER BY id DESC`,
       [now, now]
     );

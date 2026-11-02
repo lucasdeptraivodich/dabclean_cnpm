@@ -104,11 +104,11 @@ const UserModel = {
     return parseInt(countVal, 10) || 0;
   },
 
-  // Kiểm tra người dùng có đơn đặt lịch nào liên kết không
+  // Kiểm tra người dùng có đơn đặt lịch nào liên kết không (cả vai trò khách hàng lẫn nhân viên)
   async hasBookings(userId) {
     const rows = await db.query(
-      'SELECT COUNT(*) AS count FROM bookings WHERE user_id = ?',
-      [userId]
+      'SELECT COUNT(*) AS count FROM bookings WHERE user_id = ? OR staff_id = ?',
+      [userId, userId]
     );
     const countVal = rows[0] ? (rows[0].count !== undefined ? rows[0].count : rows[0].total) : 0;
     return (parseInt(countVal, 10) || 0) > 0;
