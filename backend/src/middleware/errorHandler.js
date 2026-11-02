@@ -27,7 +27,7 @@ function sanitizeForLog(data) {
 
 // Xử lý lỗi toàn cục hệ thống (Bug 14: Bảo vệ không rò rỉ stack trace & SQL details)
 function errorHandler(err, req, res, next) {
-  const isDev = process.env.NODE_ENV === 'development';
+  const isDev = process.env.NODE_ENV === 'development' && process.env.DEMO_MODE !== 'true';
   const statusCode = Number.isInteger(err.statusCode) && err.statusCode >= 400 && err.statusCode < 600
     ? err.statusCode
     : 500;

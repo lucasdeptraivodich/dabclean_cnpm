@@ -52,6 +52,7 @@ app.get('/api/health', (req, res) => {
     app: 'DabClean Fullstack API',
     version: '1.0.0',
     mysql_connected: db.isMySQLConnected(),
+    demo_mode: Boolean(db.demo),
     timestamp: new Date().toISOString()
   });
 });

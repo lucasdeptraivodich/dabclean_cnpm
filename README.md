@@ -4,6 +4,29 @@
 
 > **AI V3.1:** Đã có sáu thanh có trạng thái Chưa xác định, scoring engine ba mức, VLM Ollama chạy thật local, công cụ gán nhãn và hiệu chuẩn. Đọc [báo cáo V3.1](docs/AI_V31_REPORT.md) để xem điều kiện mở điểm, test và giới hạn. Chưa có artifact hiệu chuẩn thật hoặc benchmark accuracy đủ nhãn; không ép ra sáu số. Demo: `http://127.0.0.1:5100/v3.html`; gán nhãn: `/label-v31.html`. Trong `ai-module/`, chạy `npm run ollama:local` ở một terminal và `npm start` ở terminal khác (runtime/weights local đã chuẩn bị trên máy này, không đưa vào Git).
 
+### Demo đặt lịch / nhân viên không cần MySQL
+
+Trong `D:\Documents\DabClean\backend`, cài dependency bằng `npm ci` nếu chưa cài, rồi chạy:
+
+```powershell
+npm run demo
+```
+
+Mở `http://127.0.0.1:5000/login.html`. Khách demo: `demo@nova.app` / `NovaDemo2026!`; nhân viên: `staff@cleanova.vn` / `Staff@Cleanova2026!`. Đặt lịch ở tài khoản khách, đăng nhập nhân viên, mở **Đơn chờ nhận → Nhận ca → Bản đồ / Chỉ đường**. Mỗi ví khách/tín dụng khởi tạo 1.000.000đ giả lập, ví thu nhập bắt đầu 0đ. Giao diện có nhãn DEMO; không chuyển khoản hoặc thanh toán tiền thật.
+
+`npm run demo` bật `DEMO_MODE=true`, `NODE_ENV=development`, mặc định chỉ nghe localhost. Chế độ này không kết nối MySQL và không chạy migration. Dữ liệu chỉ tồn tại trong RAM, mất khi dừng/khởi động lại; nếu đang có server cổng 5000, dừng server cũ trước. Có thể cấu hình `DEMO_MODE=true` trực tiếp khi `NODE_ENV=development` hoặc `test`; production/unset bị từ chối. Chạy `npm start` với `DEMO_MODE=false` để dùng luồng MySQL hiện có. Không dùng demo để xác nhận tính đúng đắn giao dịch MySQL hoặc triển khai thật.
+
+Demo hỗ trợ nhận ca bằng ví giả lập, đọc ví/lịch sử, thanh toán/hoàn ví khách, quyết toán giả lập, chuyển thu nhập sang tín dụng và hủy theo quyền/trạng thái hiện có. Nhận lại đơn không trừ tiền lần hai; chỉ một nhân viên có thể nhận cùng một đơn. Nhận qua chuyển khoản ngân hàng và rút tiền thật bị chặn. Nạp trực tiếp ví tín dụng vẫn bị vô hiệu hóa theo chính sách hiện có; khởi động lại demo cấp lại tiền giả và xóa toàn bộ dữ liệu RAM. Bản đồ vẫn cần Internet và GPS cần quyền vị trí/HTTPS hoặc localhost.
+
+Kiểm thử từ thư mục gốc:
+
+```powershell
+node backend/test-demo-mode.js
+node backend/test-demo-store.js
+```
+
+Xem [báo cáo demo và giới hạn](docs/DEMO_MODE.md). Không thêm dependency hoặc thay schema.
+
 ### Chạy AI V3
 
 Dùng Node.js 22 trở lên (đã kiểm thử với Node 24). Chạy từng lệnh trong đúng thư mục:
@@ -242,10 +265,33 @@ Tất cả các API đều có tiền tố `/api` và trả về kết quả dư
 - `GET /api/wallet/transactions` : Lấy lịch sử sổ cái biến động của từng ví với bộ lọc phân loại.
 
 ### Nhân viên (`/api/staff`) - *Yêu cầu Token Staff/Admin*
+- `GET /api/staff/available-bookings` : Danh sách việc chờ nhận theo quy tắc hiện có; giao diện hiển thị đơn `pending` chưa có nhân viên ở mục **Đơn chờ nhận**, tách khỏi việc đã được giao. Bấm Nhận ca dùng API thanh toán chiết khấu hiện có, cần MySQL thật; không giả lập nhận ca thành công khi database lỗi.
+- `GET /api/staff/tasks/:id/navigation` : Địa chỉ chỉ đường cho nhân viên được giao (hoặc admin), chỉ khi đơn ở `confirmed`, `arrived`, `in_progress`. Đơn chờ nhận/đã kết thúc trả 409; không đúng nhân viên trả 403.
 - `PATCH /api/staff/tasks/:id/status` : Nhân viên xác nhận nhận việc (`confirmed` - kiểm tra nghiêm ngặt `creditBalance >= 100.000 VNĐ`), báo đã đến (`arrived`), hoàn thành (`completed` - tự động khấu trừ chiết khấu sàn từ ví tín dụng).
 - `GET /api/staff/tasks/:id/checklist` : Lấy danh sách khu vực, ảnh Before/After và tiến độ từng góc chụp.
 - `POST /api/staff/tasks/:id/photos` : Tải ảnh JPEG lên dạng `multipart/form-data` (tối đa 8 MB sau nén), kèm `areaName`, `angleId`, `stage`, `capturedAt`, `latitude`, `longitude`.
 - `POST /api/staff/tasks/:id/cash-payment` : Ghi nhận thu tiền mặt sau khi hoàn tất ảnh After; giao diện yêu cầu nhân viên vuốt thanh xác nhận.
+
+Khách nhập địa chỉ đầy đủ khi đặt dịch vụ, không cần bật GPS hoặc ghim bản đồ. Sau khi nhận đơn thành công, nhân viên mở **Bản đồ / Chỉ đường** trong thẻ công việc. Bản đồ dùng địa chỉ đã lưu của khách; nút **Dùng GPS của tôi** chỉ lấy vị trí nhân viên làm điểm xuất phát, không thay địa chỉ khách. GPS chỉ được yêu cầu khi bấm nút; cần HTTPS hoặc localhost và quyền vị trí. Nếu từ chối quyền hoặc định vị lỗi, vẫn có thể mở Google Maps và chọn điểm xuất phát. Không lưu vị trí nhân viên vào database. Bản đồ cần Internet; kết quả theo địa chỉ cần đối chiếu số nhà/căn hộ với khách nếu chưa rõ. GPS của ảnh công việc Before/After được giữ nguyên.
+
+Kiểm thử riêng thay đổi bản đồ, từ thư mục gốc (cài dependency `backend/` và `ai-module/` theo hướng dẫn phía trên):
+
+```powershell
+node backend/test-staff-navigation.js
+node ai-module/test/staff-navigation.test.cjs
+```
+
+Test HTTP dùng router và middleware JWT thật với model giả lập; không thay thế kiểm thử MySQL. Test DOM dùng dependency phát triển `linkedom` có sẵn trong `ai-module/`. Thay đổi bản đồ không yêu cầu migration, biến `.env` hay dependency mới.
+
+Nút **Hủy công việc** mở form lý do 5–500 ký tự ngay trong trang, không dùng hộp thoại `prompt`. Nhân viên chỉ có thể hủy trước khi đến nhà khách (`assigned`, `confirmed`), theo kiểm tra hiện có ở backend. Form chi tiết cũng có ô lý do hủy. Kiểm thử bổ sung từ thư mục gốc:
+
+```powershell
+node backend/test-available-bookings.js
+node backend/test-staff-cancellation.js
+node ai-module/test/staff-job-actions.test.cjs
+```
+
+Hai test backend bổ sung sử dụng dữ liệu in-memory riêng trong process test và không chạm dữ liệu server đang chạy. Kết quả này không xác minh MySQL hoặc transaction chiết khấu/hoàn tiền.
 
 ### Quản trị viên (`/api/admin`) - *Yêu cầu Token có quyền Admin*
 - `GET /api/admin/stats` : Lấy số liệu thống kê Dashboard: phân tách Tiền mặt vs Trực tuyến và 6 chỉ số Quản trị Hai Ví Nhân Viên DabClean.

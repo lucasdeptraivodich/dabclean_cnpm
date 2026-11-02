@@ -4,6 +4,7 @@
 const mysql = require('mysql2/promise');
 const path = require('path');
 require('dotenv').config({ path: path.join(__dirname, '../../.env') });
+const { enabled: demoEnabled } = require('./demoMode');
 
 let pool = null;
 let isConnectedToMySQL = false;
@@ -455,9 +456,14 @@ const inMemoryData = {
 inMemoryData.jobPhotos = [];
 inMemoryData.bookingNotifications = [];
 inMemoryData.staff_commission_payments = [];
+const demo = demoEnabled ? require('../services/demoStore')(inMemoryData) : null;
 
 // Khởi tạo và kiểm tra kết nối MySQL
 async function initDatabase() {
+  if (demoEnabled) {
+    console.warn('[DEMO_MODE] Dữ liệu RAM, ví và chiết khấu giả lập. Không kết nối MySQL; mất dữ liệu khi dừng server.');
+    return;
+  }
   let connection;
   try {
     pool = mysql.createPool(dbConfig);
@@ -1652,6 +1658,20 @@ function queryInMemory(sql, params = []) {
 
   // 7. SELECT bookings
   if (normalizedSql.includes('from bookings')) {
+    // Match the available-work SQL filter AND projection, rather than admin fallback.
+    if (normalizedSql.includes("where (b.status = 'pending'") && normalizedSql.includes('b.staff_id is null')) {
+      const staffId = Number(params[0]);
+      return inMemoryData.bookings
+        .filter(b => (b.status === 'pending' && (b.staff_id == null || b.staff_id === staffId)) || (b.status === 'assigned' && b.staff_id === staffId))
+        .sort((a, b) => String(a.booking_date).localeCompare(String(b.booking_date)) || String(a.booking_time).localeCompare(String(b.booking_time)))
+        .slice(0, 50)
+        .map(b => {
+          const service = inMemoryData.services.find(s => s.id === b.service_id);
+          const row = {};
+          for (const key of ['id', 'booking_code', 'booking_date', 'booking_time', 'address', 'area_size', 'total_price', 'staff_wage', 'commission_rate', 'platform_commission', 'staff_net_wage', 'status', 'staff_id', 'commission_status', 'payment_method']) row[key] = b[key] ?? null;
+          return { ...row, service_name: service?.name || b.service_name, service_icon: service?.icon || b.service_icon, duration_estimate: service?.duration_estimate || null };
+        });
+    }
     // 7a. Lọc đơn theo nhân viên được phân công (Staff Portal)
     if (normalizedSql.includes('where b.staff_id =') || normalizedSql.includes('where staff_id =')) {
       const staffId = parseInt(params[0], 10);
@@ -1827,16 +1847,19 @@ function queryInMemory(sql, params = []) {
     if (normalizedSql.includes('where id = ? and staff_id = ?')) {
       const status = params[0];
       const staff_notes = params[1];
-      const id = parseInt(params[4], 10);
-      const staffId = parseInt(params[5], 10);
-      const expectedStatus = params[6];
+      // Parameter positions match BookingModel.updateStaffTaskStatus's CASE/IF SQL.
+      const id = parseInt(params[7], 10);
+      const staffId = parseInt(params[8], 10);
+      const expectedStatus = params[9];
       const booking = inMemoryData.bookings.find(b => b.id === id && b.staff_id === staffId);
       if (booking) {
         if (expectedStatus && booking.status !== expectedStatus) return { affectedRows: 0 };
         booking.status = status;
         if (staff_notes !== undefined) booking.staff_notes = staff_notes;
-        booking.cancel_reason = params[2] || null;
+        if (status === 'cancelled') booking.cancel_reason = params[3] || booking.cancel_reason || null;
         if (status === 'arrived' && !booking.arrived_at) booking.arrived_at = new Date();
+        if (status === 'completed' && booking.wage_status === 'pending') booking.wage_status = 'approved';
+        if (status === 'cancelled') booking.wage_status = 'cancelled';
         return { affectedRows: 1 };
       }
       return { affectedRows: 0 };
@@ -2125,6 +2148,7 @@ function queryInMemory(sql, params = []) {
 initDatabase();
 
 module.exports = {
+  demo,
   query,
   isMySQLConnected: () => isConnectedToMySQL,
   getPool: () => pool

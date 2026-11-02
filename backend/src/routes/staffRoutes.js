@@ -17,6 +17,7 @@ router.post('/tasks/:id/accept', staffController.acceptBooking);
 router.get('/photos/:filename', staffController.getTaskPhoto);
 router.get('/tasks', staffController.getMyTasks);
 router.get('/tasks/:id', staffController.getTaskDetail);
+router.get('/tasks/:id/navigation', staffController.getTaskNavigation);
 router.get('/tasks/:id/checklist', staffController.getTaskChecklist);
 router.post('/tasks/:id/photos', (req, res, next) => {
   uploadJobPhoto(req, res, err => {

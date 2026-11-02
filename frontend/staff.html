@@ -8,6 +8,8 @@
   <link rel="stylesheet" href="app.css">
   <link rel="stylesheet" href="css/realtime-notification.css">
   <script src="api.js"></script>
+  <script src="js/staff-job-actions.js" defer></script>
+  <link rel="stylesheet" href="css/staff-navigation.css">
   <style>
     /* Staff Workspace Layout */
     .staff-navbar {
@@ -1256,6 +1258,10 @@
             <textarea id="task-modal-staff-notes" class="form-control" rows="3" placeholder="Nhập tình trạng công việc, ghi chú bàn giao hoặc lý do nếu có sự cố..."></textarea>
           </div>
 
+          <div class="form-group" style="margin-bottom: var(--space-lg);">
+            <label class="form-label" for="task-modal-cancel-reason">Lý do hủy (bắt buộc khi hủy, từ 5 đến 500 ký tự):</label>
+            <textarea id="task-modal-cancel-reason" class="form-control" rows="3" maxlength="500"></textarea>
+          </div>
           <div style="display: flex; justify-content: flex-end; gap: var(--space-sm);">
             <button type="button" class="btn btn-ghost" data-close="modal-task-detail">Đóng</button>
             <button type="submit" class="btn btn-primary" id="btn-submit-task-status">
@@ -1861,8 +1867,25 @@
         }
       }
 
+      const staffJobActions = window.DabCleanStaffJobs.create({
+        api: DabCleanAPI.staff,
+        onAccepted: async result => {
+          if (result.requires_bank_transfer || result.code === 'PAYMENT_REQUIRED') {
+            openCommissionTransferModal(result.data);
+          } else {
+            showAlert('success', result.message || 'Đã nhận ca thành công.');
+            await loadStaffTasks();
+          }
+        },
+        onCancelled: async () => {
+          showAlert('success', 'Đã hủy công việc và lưu lý do.');
+          await loadStaffTasks();
+        }
+      });
+
       async function loadStaffTasks() {
         try {
+          await staffJobActions.refresh();
           await refreshStaffEligibility();
           const res = await DabCleanAPI.staff.getMyTasks(currentFilterStatus);
           myTasksList = res.data || [];
@@ -2003,7 +2026,7 @@
               </button>
             `;
           }
-          const canCancel = ['assigned', 'confirmed', 'arrived', 'in_progress'].includes(task.status);
+          const canCancel = ['assigned', 'confirmed'].includes(task.status);
 
           return `
             <div class="task-card" id="task-card-${task.id}">
@@ -2033,7 +2056,8 @@
                   <span class="task-info-label">📍 Địa chỉ</span>
                   <span class="task-info-val" title="${escapeHtml(address)}">
                     ${escapeHtml(address)}
-                    <a href="https://www.google.com/maps/search/?api=1&query=${encodeURIComponent(address)}" target="_blank" rel="noopener" style="font-size: 12px; color: #2563EB; margin-left: 4px; text-decoration: none;">🗺️ Bản đồ</a>
+                    ${['confirmed', 'arrived', 'in_progress'].includes(task.status)
+                      ? `<button type="button" class="btn btn-secondary btn-sm" data-task-navigation="${Number(task.id)}">📍 Bản đồ / Chỉ đường</button>` : ''}
                   </span>
                 </div>
                 <div class="task-info-item">
@@ -2229,23 +2253,6 @@
           });
         });
 
-        container.querySelectorAll('.btn-cancel-task').forEach(btn => {
-          btn.addEventListener('click', async function () {
-            const reason = window.prompt('Nhập lý do hủy công việc (bắt buộc, ít nhất 5 ký tự):');
-            if (!reason || reason.trim().length < 5) {
-              if (reason !== null) alert('Lý do hủy cần có ít nhất 5 ký tự.');
-              return;
-            }
-            try {
-              await DabCleanAPI.staff.updateTaskStatus(parseInt(this.dataset.id, 10), 'cancelled', '', reason.trim());
-              showAlert('success', 'Đã hủy công việc và lưu lý do.');
-              await loadStaffTasks();
-            } catch (err) {
-              alert(`Không thể hủy công việc: ${err.message}`);
-            }
-          });
-        });
-
         container.querySelectorAll('.btn-view-photo-report').forEach(btn => {
           btn.addEventListener('click', function () {
             openPhotoChecklist(parseInt(this.dataset.id, 10), 'after');
@@ -2291,6 +2298,8 @@
           document.getElementById('task-modal-status-select').value = task.status;
           document.getElementById('task-modal-status-select').dataset.originalStatus = task.status;
           document.getElementById('task-modal-staff-notes').value = task.staff_notes || '';
+          document.getElementById('task-modal-cancel-reason').value = task.cancel_reason || '';
+          document.querySelector('#task-modal-status-select option[value="cancelled"]').disabled = !['assigned', 'confirmed', 'cancelled'].includes(task.status);
 
           const content = document.getElementById('modal-task-content');
           content.innerHTML = `
@@ -2380,9 +2389,9 @@
         }
         let cancellationReason = '';
         if (newStatus === 'cancelled') {
-          cancellationReason = window.prompt('Nhập lý do hủy công việc (bắt buộc, tối thiểu 5 ký tự):') || '';
-          if (cancellationReason.trim().length < 5) {
-            alert('Lý do hủy cần có ít nhất 5 ký tự.');
+          cancellationReason = document.getElementById('task-modal-cancel-reason').value.trim();
+          if (cancellationReason.length < 5 || cancellationReason.length > 500) {
+            alert('Lý do hủy cần có từ 5 đến 500 ký tự.');
             return;
           }
         }
@@ -3026,6 +3035,7 @@
       }
     });
   </script>
+  <script src="js/staff-navigation.js"></script>
   <script src="js/realtime-notification.js"></script>
 </body>
 </html>

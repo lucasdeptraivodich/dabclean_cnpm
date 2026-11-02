@@ -22,6 +22,7 @@ const CommissionPaymentModel = {
    * Case B: Ví tín dụng không đủ tiền -> tạo yêu cầu chuyển khoản pending, đơn chưa được nhận
    */
   async initiatePayment({ bookingId, staffId, paymentMethod = 'wallet', idempotencyKey = null }) {
+    if (db.demo) return db.demo.accept({ bookingId, staffId, paymentMethod, idempotencyKey });
     const pool = db.getPool();
     if (!pool || !db.isMySQLConnected()) {
       const err = new Error('Hệ thống cơ sở dữ liệu hiện không khả dụng để xử lý nhận ca và chiết khấu.');
@@ -550,6 +551,7 @@ const CommissionPaymentModel = {
    * - Chưa xác định (fault: 'unclear'): chuyển sang trạng thái pending_review
    */
   async handleCancellationRefund({ bookingId, cancelReason = '', fault = 'unclear', adminId = null }) {
+    if (db.demo) return db.demo.cancellation({ bookingId, fault });
     const pool = db.getPool();
     if (!pool || !db.isMySQLConnected()) {
       const err = new Error('Hệ thống cơ sở dữ liệu hiện không khả dụng để xử lý hoàn tiền chiết khấu.');

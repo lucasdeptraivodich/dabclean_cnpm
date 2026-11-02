@@ -38,6 +38,25 @@ async function getChecklistProgress(booking) {
 }
 
 const staffController = {
+  // Destination is the customer's saved service address, never the staff GPS.
+  async getTaskNavigation(req, res, next) {
+    try {
+      const id = Number(req.params.id);
+      if (!/^\d+$/.test(req.params.id) || !Number.isSafeInteger(id) || id <= 0) {
+        return res.status(400).json({ success: false, message: 'Mã công việc không hợp lệ.' });
+      }
+      const booking = await getAssignedBooking(id, req, res);
+      if (!booking) return;
+      if (!['confirmed', 'arrived', 'in_progress'].includes(booking.status)) {
+        return res.status(409).json({ success: false, message: 'Chỉ đường chỉ khả dụng sau khi nhận đơn và trước khi hoàn tất hoặc hủy đơn.' });
+      }
+      if (typeof booking.address !== 'string' || !booking.address.trim()) {
+        return res.status(422).json({ success: false, message: 'Đơn chưa có địa chỉ hợp lệ. Vui lòng liên hệ khách hàng.' });
+      }
+      res.set('Cache-Control', 'no-store');
+      return res.json({ success: true, data: { id: booking.id, address: booking.address.trim() } });
+    } catch (err) { next(err); }
+  },
   // 0a. Lấy danh sách việc làm khả dụng để nhận ca (GET /api/staff/available-bookings)
   async getAvailableBookings(req, res, next) {
     try {

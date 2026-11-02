@@ -32,6 +32,21 @@
 
   const API_BASE_URL = getApiBaseUrl();
 
+  // Discover server mode; clients cannot turn demo mode on through this request.
+  const showDemoMode = () => {
+    fetch(`${API_BASE_URL}/health`).then(response => response.json()).then(health => {
+      if (health.demo_mode !== true || document.getElementById('dabclean-demo-banner')) return;
+      const banner = document.createElement('div');
+      banner.id = 'dabclean-demo-banner';
+      banner.setAttribute('role', 'status');
+      banner.textContent = 'DEMO — Ví và chiết khấu là tiền giả lập. Dữ liệu chỉ lưu tạm trong RAM và mất khi dừng server. Không chuyển tiền thật.';
+      banner.style.cssText = 'position:relative;z-index:1100;padding:12px 20px;background:#fef3c7;color:#78350f;text-align:center;font:600 14px/1.5 sans-serif;';
+      document.body.prepend(banner);
+    }).catch(() => {});
+  };
+  if (document.readyState === 'loading') document.addEventListener('DOMContentLoaded', showDemoMode, { once: true });
+  else showDemoMode();
+
   async function request(endpoint, options = {}) {
     const url = `${API_BASE_URL}${endpoint}`;
     const headers = {
@@ -736,6 +751,10 @@
 
       async getTaskDetail(id) {
         return await request(`/staff/tasks/${id}`);
+      },
+
+      async getTaskNavigation(id) {
+        return await request(`/staff/tasks/${encodeURIComponent(id)}/navigation`);
       },
 
       async updateTaskStatus(id, status, staff_notes = '', cancel_reason = '') {

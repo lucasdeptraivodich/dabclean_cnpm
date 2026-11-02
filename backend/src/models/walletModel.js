@@ -10,6 +10,7 @@ const STAFF_MIN_CREDIT_THRESHOLD = 100000;
 const WalletModel = {
   // Lấy hoặc tạo ví cho người dùng (Hỗ trợ customer, credit, earnings)
   async getOrCreateWallet(userId, externalConn = null, walletType = null) {
+    if (db.demo && !externalConn) return db.demo.getWallet(userId, walletType);
     let targetType = walletType;
     if (!targetType) {
       let role = 'customer';
@@ -89,6 +90,7 @@ const WalletModel = {
    * Đảm bảo tính Idempotency và ghi sổ cái bất biến (Double-entry ledger)
    */
   async topup({ userId, amount, idempotencyKey = null, description = 'Nạp tiền vào ví CleanNova (Sandbox)', referenceType = 'sandbox', referenceId = null }) {
+    if (db.demo) return db.demo.topup({ userId, amount, idempotencyKey });
     const parsedAmount = parseFloat(amount);
     if (isNaN(parsedAmount) || parsedAmount <= 0) {
       const error = new Error('Số tiền nạp phải là số dương lớn hơn 0.');
@@ -194,6 +196,7 @@ const WalletModel = {
    * Chống thanh toán trùng, trừ tiền đúng 1 lần và ghi bút toán sổ cái (Debit)
    */
   async payBooking({ userId, bookingId, idempotencyKey = null }) {
+    if (db.demo) return db.demo.payBooking({ userId, bookingId });
     const pool = db.getPool();
     if (!pool || !db.isMySQLConnected()) {
       throw new Error('Hệ thống cơ sở dữ liệu hiện không khả dụng để xử lý thanh toán.');
@@ -311,6 +314,7 @@ const WalletModel = {
    * Áp dụng khi khách hủy đơn đã trả tiền hoặc admin duyệt hoàn tiền
    */
   async refundBooking({ bookingId, reason = 'Hoàn tiền hủy đơn đặt dịch vụ', adminId = null }) {
+    if (db.demo) return db.demo.refundBooking({ bookingId, reason });
     const pool = db.getPool();
     if (!pool || !db.isMySQLConnected()) {
       throw new Error('Hệ thống cơ sở dữ liệu hiện không khả dụng để xử lý hoàn tiền.');
@@ -412,6 +416,7 @@ const WalletModel = {
 
   // Lấy lịch sử giao dịch ví của một người dùng (hỗ trợ phân trang & lọc theo loại GD và loại ví)
   async getTransactions(userId, { type = null, wallet_type = null, limit = 20, offset = 0 } = {}) {
+    if (db.demo) return db.demo.getTransactions(userId, { type, wallet_type, limit, offset });
     const params = [userId];
     let sql = `
       SELECT t.*, w.wallet_type
@@ -522,6 +527,7 @@ const WalletModel = {
    * Lấy chi tiết thông tin Hai Ví Nhân Viên (Ví tín dụng & Ví thu nhập)
    */
   async getStaffWallets(staffId) {
+    if (db.demo) return db.demo.staffWallets(staffId);
     const { creditWallet, earningsWallet } = await this.getOrCreateStaffWallets(staffId);
     const creditBal = parseFloat(creditWallet.balance) || 0;
     const earningsBal = parseFloat(earningsWallet.balance) || 0;
@@ -601,6 +607,7 @@ const WalletModel = {
    * Nếu số dư ví tín dụng đang âm, tiền nạp tự động bù khoản âm trước khi tạo số dư dương
    */
   async topupCreditWallet({ staffId, amount, idempotencyKey = null, description = 'Nạp tiền vào Ví tín dụng CleanNova', referenceType = 'sandbox_topup', referenceId = null }) {
+    if (db.demo) return db.demo.topup({ staffId, amount, idempotencyKey }, true);
     if (referenceType === 'sandbox_staff_credit' || referenceType === 'staff_direct') {
       const error = new Error('Chức năng nạp tiền chủ động vào Ví Tín Dụng đã bị vô hiệu hóa.');
       error.statusCode = 403;
@@ -719,6 +726,7 @@ const WalletModel = {
    * rollback toàn bộ nếu có lỗi, và tuyệt đối không tạo doanh thu giả cho CleanNova.
    */
   async transferEarningsToCredit({ staffId, amount, idempotencyKey = null, note = null }) {
+    if (db.demo) return db.demo.transfer({ staffId, amount, idempotencyKey });
     const parsedAmount = Math.round(parseFloat(amount) || 0);
     if (isNaN(parsedAmount) || parsedAmount <= 0) {
       const error = new Error('Số tiền chuyển sang Ví tín dụng phải lớn hơn 0 VNĐ.');
@@ -865,6 +873,7 @@ const WalletModel = {
    * Đảm bảo tính Idempotency: Không trừ chiết khấu và không cộng thù lao 2 lần cho cùng một đơn.
    */
   async settleBookingCommissionAndWage({ bookingId, adminId = null, note = null }) {
+    if (db.demo) return db.demo.settle({ bookingId });
     const pool = db.getPool();
     if (!pool || !db.isMySQLConnected()) {
       throw new Error('Cơ sở dữ liệu MySQL hiện không khả dụng để xử lý quyết toán thù lao.');
@@ -1109,6 +1118,11 @@ const WalletModel = {
    * Rút tiền từ ví về tài khoản ngân hàng (Staff rút từ Ví Thu Nhập / Customer rút từ Ví Khách)
    */
   async withdraw({ userId, amount, bankName, accountNumber, accountName, note = null }) {
+    if (db.demo) {
+      const err = new Error('DEMO không hỗ trợ rút tiền hoặc chuyển khoản ngân hàng thật.');
+      err.statusCode = 400;
+      throw err;
+    }
     const parsedAmount = Math.round(parseFloat(amount) || 0);
     if (parsedAmount < 50000) {
       const error = new Error('Số tiền rút tối thiểu mỗi lần là 50.000 VNĐ.');
@@ -1204,6 +1218,7 @@ const WalletModel = {
    * Lấy tổng quan thù lao & 2 ví của nhân viên
    */
   async getStaffWageSummary(staffId) {
+    if (db.demo) return db.demo.summary(staffId);
     const twoWallets = await this.getStaffWallets(staffId);
     const earningsBal = twoWallets.earnings_wallet.balance;
     const creditBal = twoWallets.credit_wallet.balance;
