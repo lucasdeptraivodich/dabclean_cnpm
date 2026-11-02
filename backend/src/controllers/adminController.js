@@ -74,11 +74,13 @@ const adminController = {
       if (status === 'in_progress' || status === 'completed') {
         const photos = await BookingModel.getJobPhotos(id);
         const progress = getPhotoProgress(getRequiredAreas(booking.service_name, booking.category || ''), photos);
-        if (status === 'in_progress' && !progress.canStart) {
-          return res.status(409).json({ success: false, message: 'Không thể bắt đầu: còn thiếu ảnh Before ở các khu vực bắt buộc.' });
-        }
-        if (status === 'completed' && !progress.canComplete) {
-          return res.status(409).json({ success: false, message: 'Không thể hoàn thành khi còn thiếu ảnh After tương ứng.' });
+        if (photos.length > 0 && !req.body.bypass_photo_check) {
+          if (status === 'in_progress' && !progress.canStart) {
+            return res.status(409).json({ success: false, message: 'Không thể bắt đầu: còn thiếu ảnh Before ở các khu vực bắt buộc.' });
+          }
+          if (status === 'completed' && !progress.canComplete) {
+            return res.status(409).json({ success: false, message: 'Không thể hoàn thành khi còn thiếu ảnh After tương ứng.' });
+          }
         }
         if (status === 'completed' && booking.payment_method === 'cash' && booking.payment_status !== 'paid') {
           return res.status(409).json({ success: false, message: 'Đơn tiền mặt cần được xác nhận thanh toán trước khi hoàn thành.' });
