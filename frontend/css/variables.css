@@ -24,6 +24,7 @@
   /* --- Surface & Background Tones --- */
   --color-bg: #f8fafc;                  /* Slate tint rất nhạt, sang trọng */
   --color-bg-alt: #f1f5f9;              /* Slate 100 */
+  --color-white: #ffffff;
   --color-surface: #ffffff;             /* Thẻ trắng nổi bật trên nền Slate */
   --color-surface-hover: #fbfcfe;
   --color-card-bg: #ffffff;
