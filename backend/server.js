@@ -3,6 +3,7 @@
 // ============================================================
 const path = require('path');
 require('dotenv').config({ path: path.join(__dirname, '.env') });
+require('./src/config/startupMode')();
 
 const app = require('./src/app');
 const PORT = process.env.PORT || 5000;

@@ -614,7 +614,7 @@
         alertBox.style.display = 'none';
 
         // Kiểm tra đăng nhập
-        const token = localStorage.getItem('token');
+        const token = (window.DabCleanAPI || window.CleanovaAPI).auth.getToken();
         if (!token) {
           const returnUrl = encodeURIComponent(window.location.pathname + window.location.search);
           showAlert('Vui lòng đăng nhập tài khoản trước khi đặt lịch dịch vụ.');

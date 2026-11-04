@@ -2124,8 +2124,8 @@
 
         const filtered = allBookings.filter(b => {
           const matchStatus = (statusVal === 'all') || (b.status === statusVal);
-          const isCare = b.category === 'care' || Boolean(b.package_type);
-          const isConstruction = b.service_id === 5 || Boolean(b.pricing_type);
+          const isCare = b.category === 'care' || [6, 7, 8].includes(Number(b.service_id));
+          const isConstruction = Number(b.service_id) === 5;
           let matchCat = true;
           if (catVal === 'care') matchCat = isCare;
           else if (catVal === 'construction') matchCat = isConstruction;
@@ -2140,8 +2140,8 @@
 
         tbody.innerHTML = filtered.map(b => {
           const dateStr = b.booking_date ? new Date(b.booking_date).toLocaleDateString('vi-VN') : '---';
-          const isCare = b.category === 'care' || Boolean(b.package_type);
-          const isConstruction = b.service_id === 5 || Boolean(b.pricing_type);
+          const isCare = b.category === 'care' || [6, 7, 8].includes(Number(b.service_id));
+          const isConstruction = Number(b.service_id) === 5;
 
           let priceStr = Number(b.total_price || 0).toLocaleString('vi-VN') + ' đ';
           if (isConstruction) {

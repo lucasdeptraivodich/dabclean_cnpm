@@ -2,7 +2,7 @@
 
 ## Hành vi
 
-Chạy `npm run demo` trong backend. Cấu hình rõ ràng `DEMO_MODE=true` + development/test chọn store RAM; bỏ hoàn toàn kết nối/migration MySQL trong phiên demo. Production và môi trường không xác định từ chối bật demo trước khi tạo pool. Không thay luồng MySQL mặc định.
+Chạy `node server.js` hoặc `npm start` trong `backend/`. Entry point chọn cấu hình demo mặc định khi môi trường chưa đặt hoặc là development và chưa đặt `DEMO_MODE`; mặc định lắng nghe LAN ở cổng 5000. `DEMO_MODE=false` luôn được tôn trọng để chọn luồng MySQL. Production và staging không tự bật demo; `DEMO_MODE=true` ở môi trường ngoài development/test bị từ chối trước khi tạo pool. `npm run demo` vẫn là lệnh bật demo rõ ràng, mặc định localhost. Khởi động demo bỏ hoàn toàn kết nối/migration MySQL.
 
 Ví khách và tín dụng có 1.000.000 VND giả lập ban đầu, ví thu nhập 0 VND. Toàn bộ tiền và giao dịch có nhãn demo, không qua cổng thanh toán. Thao tác validation + trừ ví + gán nhân viên chạy đồng bộ trong một lượt event loop nên các request không thể chen giữa. Retry nhận ca và quyết toán không thu/trả tiền lần hai. Đây không phải bằng chứng về khóa/transaction MySQL.
 

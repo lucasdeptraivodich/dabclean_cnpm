@@ -6,15 +6,17 @@
 
 ### Demo đặt lịch / nhân viên không cần MySQL
 
-Trong `D:\Documents\DabClean\backend`, cài dependency bằng `npm ci` nếu chưa cài, rồi chạy:
+Trong thư mục `backend/` của dự án, cài dependency bằng `npm ci` nếu chưa cài, rồi chạy:
 
 ```powershell
-npm run demo
+node server.js
 ```
 
 Mở `http://127.0.0.1:5000/login.html`. Khách demo: `demo@nova.app` / `NovaDemo2026!`; nhân viên: `staff@cleanova.vn` / `Staff@Cleanova2026!`. Đặt lịch ở tài khoản khách, đăng nhập nhân viên, mở **Đơn chờ nhận → Nhận ca → Bản đồ / Chỉ đường**. Mỗi ví khách/tín dụng khởi tạo 1.000.000đ giả lập, ví thu nhập bắt đầu 0đ. Giao diện có nhãn DEMO; không chuyển khoản hoặc thanh toán tiền thật.
 
-`npm run demo` bật `DEMO_MODE=true`, `NODE_ENV=development`, mặc định chỉ nghe localhost. Chế độ này không kết nối MySQL và không chạy migration. Dữ liệu chỉ tồn tại trong RAM, mất khi dừng/khởi động lại; nếu đang có server cổng 5000, dừng server cũ trước. Có thể cấu hình `DEMO_MODE=true` trực tiếp khi `NODE_ENV=development` hoặc `test`; production/unset bị từ chối. Chạy `npm start` với `DEMO_MODE=false` để dùng luồng MySQL hiện có. Không dùng demo để xác nhận tính đúng đắn giao dịch MySQL hoặc triển khai thật.
+`node server.js` và `npm start` mặc định bật demo khi `NODE_ENV` chưa đặt hoặc là `development`, và `DEMO_MODE` chưa đặt. Có sẵn tài khoản, đơn mẫu, ví giả lập; không kết nối MySQL và không chạy migration. Server mặc định nghe `0.0.0.0:5000` để truy cập qua LAN; đặt `HOST=127.0.0.1` nếu chỉ dùng trên máy này. Dữ liệu chỉ tồn tại trong RAM, mất khi dừng/khởi động lại; nếu đang có server cổng 5000, dừng server cũ trước.
+
+Đặt `DEMO_MODE=false` để dùng luồng MySQL hiện có. Khi triển khai thật, bắt buộc cấu hình `NODE_ENV=production`, `DEMO_MODE=false` cùng secret và MySQL phù hợp; production luôn từ chối `DEMO_MODE=true`. Các môi trường khác không tự bật demo. Lệnh `npm run demo` vẫn có thể bật demo rõ ràng trong development, mặc định chỉ nghe localhost. Không dùng demo để xác nhận tính đúng đắn giao dịch MySQL hoặc triển khai thật.
 
 Demo hỗ trợ nhận ca bằng ví giả lập, đọc ví/lịch sử, thanh toán/hoàn ví khách, quyết toán giả lập, chuyển thu nhập sang tín dụng và hủy theo quyền/trạng thái hiện có. Nhận lại đơn không trừ tiền lần hai; chỉ một nhân viên có thể nhận cùng một đơn. Nhận qua chuyển khoản ngân hàng và rút tiền thật bị chặn. Nạp trực tiếp ví tín dụng vẫn bị vô hiệu hóa theo chính sách hiện có; khởi động lại demo cấp lại tiền giả và xóa toàn bộ dữ liệu RAM. Bản đồ vẫn cần Internet và GPS cần quyền vị trí/HTTPS hoặc localhost.
 
@@ -23,6 +25,7 @@ Kiểm thử từ thư mục gốc:
 ```powershell
 node backend/test-demo-mode.js
 node backend/test-demo-store.js
+node backend/test-server-demo-default.js
 ```
 
 Xem [báo cáo demo và giới hạn](docs/DEMO_MODE.md). Không thêm dependency hoặc thay schema.

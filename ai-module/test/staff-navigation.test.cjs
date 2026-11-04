@@ -7,7 +7,7 @@ const { parseHTML } = require('linkedom');
 const root = path.resolve(__dirname, '../..');
 const source = fs.readFileSync(path.join(root, 'frontend/js/staff-navigation.js'), 'utf8');
 const tick = () => new Promise(resolve => setImmediate(resolve));
-async function setup(response, geo) {
+async function setup(response, geo, secure = true) {
   const { document, window } = parseHTML('<html><body><button data-task-navigation="10">Map</button></body></html>');
   const originalCreate = document.createElement.bind(document);
   document.createElement = tag => {
@@ -19,7 +19,7 @@ async function setup(response, geo) {
     return node;
   };
   let calls = 0;
-  vm.runInNewContext(source, { document, URL, navigator: { geolocation: geo }, DabCleanAPI: { staff: { getTaskNavigation: async () => { calls++; return typeof response === 'function' ? response() : response; } } } });
+  vm.runInNewContext(source, { document, window: { isSecureContext: secure }, URL, navigator: { geolocation: geo }, DabCleanAPI: { staff: { getTaskNavigation: async () => { calls++; return typeof response === 'function' ? response() : response; } } } });
   assert.equal(calls, 0, 'no destination lookup before user action');
   const button = document.querySelector('[data-task-navigation]');
   button.dispatchEvent(new window.Event('click', { bubbles: true }));
@@ -51,7 +51,23 @@ async function setup(response, geo) {
   const denied = await setup({ success: true, data: { address: '12 Hà Nội' } }, { getCurrentPosition(ok, fail) { fail({ code: 1 }); } });
   denied.dialog.querySelectorAll('button')[1].click();
   assert.ok(denied.dialog.textContent.includes('Không lấy được GPS'));
+  assert.ok(denied.dialog.textContent.includes('bị chặn'));
   assert.equal(new URL(denied.dialog.querySelector('a').getAttribute('href')).searchParams.has('origin'), false);
+  const lan = await setup({ success: true, data: { address: '25 Duy Tân' } }, geo, false);
+  assert.ok(lan.dialog.textContent.includes('HTTP'));
+  const gpsLink = [...lan.dialog.querySelectorAll('a')].find(a => a.textContent.includes('GPS trong Google Maps'));
+  assert.ok(gpsLink, 'LAN HTTP must offer GPS on Google Maps HTTPS');
+  const gpsUrl = new URL(gpsLink.getAttribute('href'));
+  assert.equal(gpsUrl.protocol, 'https:');
+  assert.equal(gpsUrl.searchParams.get('destination'), '25 Duy Tân');
+  assert.equal(gpsUrl.searchParams.has('origin'), false, 'never invent staff coordinates');
+  assert.equal(geoCalls, 1, 'LAN must not request blocked geolocation');
+  for (const [code, message] of [[2, 'không xác định'], [3, 'Hết thời gian']]) {
+    const failure = await setup({ success: true, data: { address: 'Hà Nội' } }, { getCurrentPosition(ok, fail) { fail({ code }); } });
+    failure.dialog.querySelectorAll('button')[1].click();
+    assert.ok(failure.dialog.textContent.includes(message));
+    assert.equal(failure.dialog.querySelectorAll('button')[1].disabled, false);
+  }
   const unsupported = await setup({ success: true, data: { address: '12 Hà Nội' } });
   unsupported.dialog.querySelectorAll('button')[1].click();
   assert.ok(unsupported.dialog.textContent.includes('không hỗ trợ GPS'));
