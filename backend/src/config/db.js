@@ -1865,6 +1865,16 @@ function queryInMemory(sql, params = []) {
       return { affectedRows: 0 };
     }
 
+    // BookingModel.updateStatus: CASE parameters precede ID, followed by optional CAS state.
+    if (normalizedSql.includes('set status = ?, cancel_reason = ?,') && normalizedSql.includes('wage_status = case')) {
+      const booking = inMemoryData.bookings.find(b => b.id === Number(params[4]));
+      if (!booking || (params[5] && booking.status !== params[5])) return { affectedRows: 0 };
+      booking.status = params[0];
+      booking.cancel_reason = params[1] || null;
+      if (params[2] === 'completed' && booking.wage_status === 'pending') booking.wage_status = 'approved';
+      if (params[3] === 'cancelled') booking.wage_status = 'cancelled';
+      return { affectedRows: 1 };
+    }
     const id = parseInt(params[params.length - 1], 10);
     const booking = inMemoryData.bookings.find(b => b.id === id);
     if (booking) {

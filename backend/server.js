@@ -47,6 +47,9 @@ server.listen(PORT, HOST, () => {
   console.log(`  - Local URL:    http://localhost:${PORT}`);
   console.log(`  - LAN Network:  http://${lanIP}:${PORT}`);
   console.log(`  - API Health:   http://${lanIP}:${PORT}/api/health`);
+  console.log(`  - AI Scanner:   http://localhost:${PORT}/booking.html`);
+  console.log('  - AI API:       /api/ai/v3.2/analyze (tích hợp cùng backend)');
+  console.log('  - 9Router cần chạy theo cấu hình; không cần mở server AI cổng 5100.');
   console.log(`  - Realtime WS:  http://${lanIP}:${PORT}/socket.io/`);
   console.log('----------------------------------------------------');
   console.log('  Tài khoản Demo có sẵn:');

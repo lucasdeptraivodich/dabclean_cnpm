@@ -9,6 +9,8 @@
   <link rel="stylesheet" href="app.css">
   <link rel="stylesheet" href="css/realtime-notification.css">
   <script src="api.js"></script>
+  <script src="js/booking-qr.js" defer></script>
+  <link rel="stylesheet" href="css/booking-qr.css">
   <script src="js/ai-v3.js"></script>
   <link rel="stylesheet" href="css/ai-v3.css">
 </head>
@@ -118,7 +120,7 @@
             <div class="booking-section-card ai-scanner-card" id="section-ai-scan">
               <div class="booking-section-header" style="border-bottom: none; margin-bottom: 4px; padding-bottom: 0;">
                 <div style="flex: 1;">
-                  <span class="ai-header-badge">DabClean AI V3.1 · Sáu tiêu chí</span>
+                  <span class="ai-header-badge">DabClean AI · Ba tiêu chí</span>
                   <h3 class="booking-section-title" style="font-size: 1.25rem; color: #0f766e;">
                     Đánh giá tình trạng vệ sinh bằng AI
                   </h3>
@@ -196,7 +198,7 @@
                   Đang quét ảnh & phân tích tình trạng vệ sinh...
                 </strong>
                 <span id="ai-loading-substatus" style="font-size: 12px; color: var(--color-text-muted);">
-                  AI V3 đang xử lý ảnh local; nhận định sẽ kèm giới hạn quan sát
+                  AI đang phân tích ảnh qua 9Router; kết quả kèm dấu hiệu quan sát
                 </span>
                 <div class="ai-progress-track">
                   <div class="ai-progress-bar" id="ai-progress-bar"></div>
@@ -208,7 +210,7 @@
                 style="display: none; margin-top: 14px; line-height: 1.5;"></div>
 
               <div class="ai-result-panel" id="ai-result-panel" aria-live="polite"></div>
-              <p class="v3-notice">AI SCANNER V3 đang trong quá trình thử nghiệm và nâng cấp. Dịch vụ scanner tạm thời không khả dụng.</p>
+              <p class="v3-notice">AI phân tích qua 3 tiêu chí kèm theo đánh giá chi tiết mỗi tiêu chí</p>
 
             </div>
 
@@ -415,21 +417,7 @@
                     <span class="payment-icon">📱</span>
                     <div class="payment-info">
                       <strong>Chuyển khoản QR</strong>
-                      <small>VietQR tự động xác nhận</small>
-                    </div>
-                  </div>
-                  <div class="payment-card" data-val="momo">
-                    <span class="payment-icon">🟪</span>
-                    <div class="payment-info">
-                      <strong>Ví MoMo</strong>
-                      <small>Thanh toán ví điện tử</small>
-                    </div>
-                  </div>
-                  <div class="payment-card" data-val="vnpay">
-                    <span class="payment-icon">💳</span>
-                    <div class="payment-info">
-                      <strong>Cổng VNPAY</strong>
-                      <small>Thẻ ATM / Visa / Mastercard</small>
+                      <small>VietQR điền sẵn số tiền</small>
                     </div>
                   </div>
                   <div class="payment-card" data-val="wallet" id="payment-card-wallet">
@@ -1025,14 +1013,14 @@
         if (btnAiReanalyze) btnAiReanalyze.disabled = true;
 
         if (aiProgressBar) { aiProgressBar.style.width = '100%'; aiProgressBar.classList.add('v3-pending'); }
-        if (aiLoadingStatus) aiLoadingStatus.textContent = `Đang xử lý ${selectedFiles.length} ảnh bằng AI local...`;
+        if (aiLoadingStatus) aiLoadingStatus.textContent = `Đang xử lý ${selectedFiles.length} ảnh qua 9Router...`;
         if (aiLoadingSubstatus) aiLoadingSubstatus.textContent = 'Không có phần trăm tiến trình ước đoán. Kết quả có thể yêu cầu chụp bổ sung.';
         const filesForAnalysis = selectedFiles.slice();
         const formData = new FormData();
         filesForAnalysis.forEach(file => formData.append('images', file));
 
         try {
-          const res = await window.DabCleanAPI.ai.analyzeV31(formData);
+          const res = await window.DabCleanAPI.ai.analyzeV32(formData);
 
           if (aiProgressBar) aiProgressBar.style.width = '100%';
 
@@ -1041,7 +1029,7 @@
           }
 
           currentAiData = null;
-          window.DabCleanAiV3.render(aiResultPanel, res.data, filesForAnalysis);
+          window.DabCleanAiV3.render(aiResultPanel, res.data, filesForAnalysis, { compact: true });
           aiResultPanel.classList.add('active');
           aiResultPanel.scrollIntoView({ behavior: 'smooth', block: 'nearest' });
           showToast('success', `Đã xử lý ${filesForAnalysis.length} ảnh; xem nhận định và giới hạn.`);
@@ -1482,6 +1470,7 @@
 
         try {
           const res = await window.DabCleanAPI.bookings.create(bookingData);
+          if (res.data?.payment_method === 'bank_transfer' && window.DabCleanBookingQr.open(res.data)) return;
           const bookingCode = res?.data?.booking_code || res?.data?.bookingCode || (res?.booking_code) || 'Đã ghi nhận';
           document.getElementById('modal-booking-code').textContent = bookingCode;
           document.getElementById('success-modal').classList.add('active');

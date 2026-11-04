@@ -10,6 +10,8 @@
   <link rel="icon" type="image/svg+xml"
     href="data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 32 32'%3E%3Ccircle cx='16' cy='16' r='16' fill='%232563EB'/%3E%3Cpath d='M16 6 L8 14 L10 14 L10 24 L22 24 L22 14 L24 14 Z' fill='white'/%3E%3C/svg%3E">
   <link rel="stylesheet" href="main.css">
+  <link rel="stylesheet" href="css/booking-qr.css">
+  <script src="js/booking-qr.js" defer></script>
   <link rel="stylesheet" href="css/pages/care.css">
   <style>
     .booking-care-wrap {
@@ -413,9 +415,7 @@
                   style="color: #e11d48;">*</span></label>
               <select id="care-payment" class="care-field-select" required>
                 <option value="cash">Tiền mặt sau khi hoàn thành</option>
-                <option value="bank_transfer">Chuyển khoản ngân hàng</option>
-                <option value="momo">Ví điện tử MoMo</option>
-                <option value="vnpay">Cổng thanh toán VNPAY</option>
+                <option value="bank_transfer">Chuyển khoản QR (VietQR)</option>
               </select>
             </div>
           </div>
@@ -667,6 +667,7 @@
 
           const data = await res.json();
           if (res.ok && data.success) {
+            if (data.data?.payment_method === 'bank_transfer' && window.DabCleanBookingQr.open(data.data)) return;
             showAlert('Đặt lịch chăm sóc thành công! Mã đơn: ' + data.data.booking_code, true);
             setTimeout(() => {
               window.location.href = 'my-bookings.html';

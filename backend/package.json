@@ -7,7 +7,8 @@
     "start": "node server.js",
     "dev": "node --watch server.js",
     "demo": "node demo.js",
-    "test": "node test-comprehensive.js"
+    "test": "node test-comprehensive.js",
+    "test:ai": "node test-ai-startup.js"
   },
   "keywords": [
     "dabclean",

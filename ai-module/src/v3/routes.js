@@ -2,7 +2,7 @@
 const express = require('express');
 const multer = require('multer');
 const { runAnalysis } = require('./engine');
-const { CRITERIA } = require('./contract');
+const { CRITERIA } = require('../v32/provider');
 
 const MAX_FILE_BYTES = 6 * 1024 * 1024, MAX_FILES = 4;
 const upload = multer({ storage: multer.memoryStorage(), limits: {
@@ -11,7 +11,7 @@ const upload = multer({ storage: multer.memoryStorage(), limits: {
 
 // Factory allows contract tests with an injected runner. Production ALWAYS uses the real worker.
 function createRouter({ run = runAnalysis, version = '3.0', providerEnv = 'AI_V3_PROVIDER',
-  enabledEnv = 'AI_V3_ENABLED', defaultProvider = 'clip', capabilities = {} } = {}) {
+  enabledEnv = 'AI_V3_ENABLED', defaultProvider = '9router', capabilities = {}, allowedProviders = ['9router'] } = {}) {
   const router = express.Router();
   let busy = false;
   const clients = new Map();
@@ -19,7 +19,7 @@ function createRouter({ run = runAnalysis, version = '3.0', providerEnv = 'AI_V3
     schemaVersion: version, enabled: process.env[enabledEnv] !== 'false', experimental: true,
     provider: process.env[providerEnv] || defaultProvider, calibrated: false,
     criteria: CRITERIA, maxFiles: MAX_FILES, maxFileBytes: MAX_FILE_BYTES,
-    localOnly: true, modelReadiness: 'not_probed', aggregation: 'per_image_only', automaticPricing: false,
+    localOnly: false, modelReadiness: 'not_probed', aggregation: 'per_image_only', automaticPricing: false,
     ...capabilities
   } }));
   router.post('/analyze', (req, res) => {
@@ -27,7 +27,7 @@ function createRouter({ run = runAnalysis, version = '3.0', providerEnv = 'AI_V3
     const error = (status, code, message) => res.status(status).json({ success: false, code, message });
     const provider = process.env[providerEnv] || defaultProvider;
     if (process.env[enabledEnv] === 'false') return error(503, 'AI_V3_DISABLED', 'AI đang được tắt bằng cấu hình.');
-    if (!['clip', 'ollama'].includes(provider)) return error(503, 'AI_V3_CONFIG', 'Provider V3 chưa được cấu hình hợp lệ.');
+    if (!allowedProviders.includes(provider)) return error(503, 'AI_V3_CONFIG', 'Provider AI chưa được cấu hình hợp lệ.');
     const now = Date.now(), key = req.socket.remoteAddress || 'unknown';
     for (const [ip, value] of clients) if (value.until < now) clients.delete(ip);
     if (!clients.has(key) && clients.size >= 1000) return error(429, 'AI_RATE_LIMIT', 'Hệ thống đang bận, vui lòng thử lại sau.');
@@ -59,7 +59,7 @@ function createRouter({ run = runAnalysis, version = '3.0', providerEnv = 'AI_V3
         if (!controller.signal.aborted) res.json({ success: true, data: result });
       } catch (err) {
         if (!controller.signal.aborted) error(err.status || 503, err.code || 'AI_V3_UNAVAILABLE',
-          err.status ? err.message : 'AI local hiện không khả dụng. Không tạo kết quả thay thế.');
+          err.status ? err.message : 'Dịch vụ AI hiện không khả dụng. Không tạo kết quả thay thế.');
       } finally {
         req.files = null;
         release();

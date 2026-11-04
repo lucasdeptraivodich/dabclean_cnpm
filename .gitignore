@@ -9,8 +9,6 @@
 node_modules/
 
 # Dataset ảnh huấn luyện — KHÔNG commit (nặng ~174MB, 1057 ảnh).
-# Muốn train lại: đặt ảnh vào ai-module/dataset/{sach,hoi-ban,rat-ban}/
-# rồi chạy: node train.js
 ai-module/dataset/
 
 # Model thử nghiệm & kết quả test tạm
@@ -52,3 +50,6 @@ build/
 ai-module/.cache/
 ai-module/benchmark/images/
 ai-module/benchmark/private/
+
+# Local runtime and verification artifacts
+.cache/

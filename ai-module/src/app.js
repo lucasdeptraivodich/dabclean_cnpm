@@ -36,16 +36,14 @@ app.get('/v3-view.css', (req, res) => res.sendFile(path.join(__dirname, '../../f
 app.get('/info', (req, res) => {
   res.json({
     service: 'DabClean AI Module',
-    version: '2.0.0',
-    engine: 'tensorflow.js - MobileNet transfer learning',
+    version: '3.2.0',
+    engine: 'ChatGPT via 9Router',
     endpoints: {
       health: 'GET  /api/ai/health',
-      modelInfo: 'GET  /api/ai/model-info',
-      services: 'GET  /api/ai/services',
-      scan: 'POST /api/ai/scan      (multipart: image | images)',
-      estimate: 'POST /api/ai/estimate (multipart: image, areaSize, urgency, extras)'
+      capabilities: 'GET /api/ai/v3.2/capabilities',
+      scan: 'POST /api/ai/v3.2/analyze (multipart: image | images)'
     },
-    demo: '/index.html'
+    demo: '/v3.html'
   });
 });
 
@@ -59,7 +57,7 @@ app.use((err, req, res, next) => { // eslint-disable-line no-unused-vars
   console.error('[AI Module Error]', err.message);
   res.status(err.status || 500).json({
     success: false,
-    message: err.message || 'Lỗi máy chủ AI.'
+    message: 'Dịch vụ AI không khả dụng.'
   });
 });
 
