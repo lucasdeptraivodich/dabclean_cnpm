@@ -516,7 +516,8 @@ const staffController = {
           message: 'Cần chụp và lưu ít nhất 1 ảnh Trước khi làm việc (Before).'
         });
       }
-      if (status === 'completed' && photos.length > 0 && !progress.canComplete) {
+      const isDemo = Boolean(db.demo || process.env.DEMO_MODE === 'true');
+      if (!isDemo && status === 'completed' && photos.length > 0 && !progress.canComplete) {
         const missingPairs = progress.missingAfterAngles
           .map(photo => `${photo.area_name} (${photo.angle_id})`);
         return res.status(409).json({
@@ -696,7 +697,8 @@ const staffController = {
         return res.status(409).json({ success: false, message: 'Chỉ xác nhận thu tiền sau khi hoàn tất công việc và ảnh After.' });
       }
       const { progress } = await getChecklistProgress(booking);
-      if (!progress.canComplete) {
+      const isDemo = Boolean(db.demo || process.env.DEMO_MODE === 'true');
+      if (!isDemo && !progress.canComplete) {
         return res.status(409).json({ success: false, message: 'Cần hoàn tất tất cả ảnh After trước khi xác nhận thanh toán.' });
       }
       const updated = await BookingModel.markCashPaymentReceived(taskId, req.user.id);

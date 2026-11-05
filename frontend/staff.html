@@ -2247,7 +2247,12 @@
               showAlert('success', res.message || 'Đã ghi nhận thu tiền mặt thành công.');
               await loadStaffTasks();
             } catch (err) {
-              alert(`Không thể xác nhận thanh toán: ${err.message}`);
+              if (err.message && err.message.includes('ảnh After')) {
+                alert('Lưu ý: ' + err.message + '\nHệ thống sẽ mở khu vực chụp ảnh After để bạn hoàn tất.');
+                openPhotoChecklist(taskId, 'after');
+              } else {
+                alert('Không thể xác nhận thanh toán: ' + err.message);
+              }
               this.disabled = false;
             }
           });
