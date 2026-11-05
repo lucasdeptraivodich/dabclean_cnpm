@@ -8,6 +8,8 @@ const WalletModel = require('../models/walletModel');
 const VoucherModel = require('../models/voucherModel');
 const CommissionPaymentModel = require('../models/commissionPaymentModel');
 const pricingService = require('../services/pricingService');
+const { buildBookingVietQr } = require('../services/bookingVietQr');
+const db = require('../config/db');
 const { sanitizeInput, sanitizeReviewComment } = require('../utils/sanitize');
 
 // Bảng hệ số tính giá theo quy mô diện tích
@@ -103,7 +105,7 @@ const bookingController = {
       }
 
       // Bảo vệ Bug 6: Kiểm tra payment_method trước khi ghi vào MySQL ENUM (hỗ trợ ví CleanNova)
-      const validPaymentMethods = ['cash', 'bank_transfer', 'momo', 'vnpay', 'wallet'];
+      const validPaymentMethods = ['cash', 'bank_transfer', 'wallet'];
       if (!validPaymentMethods.includes(payment_method)) {
         return res.status(400).json({
           success: false,
@@ -435,7 +437,7 @@ const bookingController = {
       res.status(201).json({
         success: true,
         message: successMsg,
-        data: newBooking
+        data: { ...newBooking, payment_qr: buildBookingVietQr(newBooking, Boolean(db.demo)) }
       });
     } catch (err) {
       next(err);
@@ -632,7 +634,7 @@ const bookingController = {
 
       res.json({
         success: true,
-        data: booking
+        data: { ...booking, payment_qr: buildBookingVietQr(booking, Boolean(db.demo)) }
       });
     } catch (err) {
       next(err);

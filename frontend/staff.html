@@ -1969,8 +1969,8 @@
           const hasCustomerNotes = Boolean(task.notes && task.notes.trim());
           const hasStaffNotes = Boolean(task.staff_notes && task.staff_notes.trim());
 
-          const isCare = task.category === 'care' || Boolean(task.package_type);
-          const isConstruction = task.service_id === 5 || Boolean(task.pricing_type);
+          const isCare = task.category === 'care' || [6, 7, 8].includes(Number(task.service_id));
+          const isConstruction = Number(task.service_id) === 5;
 
           const buildingTypeMap = {
             apartment: 'Căn hộ chung cư',

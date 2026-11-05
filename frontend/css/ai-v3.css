@@ -11,3 +11,25 @@
 .v31-track-unknown{background:repeating-linear-gradient(135deg,#e3e8e6 0,#e3e8e6 8px,#f2f5f3 8px,#f2f5f3 16px)}
 .v31-conclusion{padding:18px;background:#fff;border:1px solid #dbe6e1;border-radius:14px;margin:16px 0;line-height:1.6}.v31-conclusion h3{margin-top:0}.v31-warning{color:#9a3412;font-weight:600}.v31-hypothesis{margin:12px 0;color:#52645b}.v31-hypothesis summary{cursor:pointer;font-size:13px}
 @keyframes v31grow{from{transform:scaleX(0)}to{transform:scaleX(1)}}@media(prefers-reduced-motion:reduce){.v31-fill{animation:none;transition:none}}
+.v32-metric{margin-top:14px;padding:18px;background:#f5faf9;border:1px solid #e0eeea}
+.v32-heading{display:flex;justify-content:space-between;align-items:center;gap:12px}.v32-heading h5{margin:0;line-height:1.5}.v32-heading strong{white-space:nowrap;color:#0f766e;font-size:18px}
+.v32-track{height:20px;margin:14px 0 5px;border-radius:999px;background:#dfeee9}.v32-fill{background:linear-gradient(90deg,#14b8a6,#0f766e)}
+.v32-scale{display:flex;justify-content:space-between;font-size:11px;color:#64786f}.v32-overall{padding:20px;margin-top:18px;background:#e8f6f0;border:1px solid #bddfcf;border-radius:14px;color:#164e3c}.v32-overall h4{margin:0 0 8px;font-size:20px}.v32-overall p{line-height:1.6;margin:8px 0}.v32-overall small{color:#52645b}
+#ai-result-panel .v3-preview{display:none}#ai-result-panel .v3-image-card{padding:16px}#ai-result-panel .v3-notice{font-size:12px;padding:9px 12px}#ai-result-panel .v3-metric h5{font-size:15px}
+@media(max-width:480px){.v32-heading{align-items:flex-start}.v32-heading strong{font-size:16px}.v32-metric{padding:14px}}
+
+/* Compact booking assessment, keeping scope and evidence readable. */
+#ai-result-panel{padding:12px;margin-top:14px}
+#ai-result-panel .v3-image-card{padding:0;margin-top:0;border:0;background:transparent}
+#ai-result-panel .v32-metric{padding:11px 12px;margin-top:9px;border-radius:9px;font-size:13px}
+#ai-result-panel .v32-heading{gap:8px}
+#ai-result-panel .v32-heading h5{font-size:14px;line-height:1.4}
+#ai-result-panel .v32-heading strong{font-size:16px}
+#ai-result-panel .v32-track{height:12px;margin:9px 0 3px}
+#ai-result-panel .v32-scale{font-size:10px}
+#ai-result-panel .v32-metric p{margin:6px 0;line-height:1.45;font-size:13px}
+#ai-result-panel .v32-metric small{font-size:11.5px;line-height:1.45}
+#ai-result-panel .v32-overall{padding:12px 14px;margin-top:12px;border-radius:10px}
+#ai-result-panel .v32-overall h4{font-size:16px;margin-bottom:5px}
+#ai-result-panel .v32-overall p{font-size:13px;line-height:1.5;margin:5px 0 0}
+#section-ai-scan>.v3-notice{font-size:13px;padding:10px 12px;line-height:1.5}

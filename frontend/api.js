@@ -32,21 +32,6 @@
 
   const API_BASE_URL = getApiBaseUrl();
 
-  // Discover server mode; clients cannot turn demo mode on through this request.
-  const showDemoMode = () => {
-    fetch(`${API_BASE_URL}/health`).then(response => response.json()).then(health => {
-      if (health.demo_mode !== true || document.getElementById('dabclean-demo-banner')) return;
-      const banner = document.createElement('div');
-      banner.id = 'dabclean-demo-banner';
-      banner.setAttribute('role', 'status');
-      banner.textContent = 'DEMO — Ví và chiết khấu là tiền giả lập. Dữ liệu chỉ lưu tạm trong RAM và mất khi dừng server. Không chuyển tiền thật.';
-      banner.style.cssText = 'position:relative;z-index:1100;padding:12px 20px;background:#fef3c7;color:#78350f;text-align:center;font:600 14px/1.5 sans-serif;';
-      document.body.prepend(banner);
-    }).catch(() => {});
-  };
-  if (document.readyState === 'loading') document.addEventListener('DOMContentLoaded', showDemoMode, { once: true });
-  else showDemoMode();
-
   async function request(endpoint, options = {}) {
     const url = `${API_BASE_URL}${endpoint}`;
     const headers = {
@@ -824,15 +809,16 @@
 
     // Module AI Vision: Quét đa ảnh phòng & Báo giá tự động
     ai: {
+      async analyzeV32(formData) { return this.analyzeV3(formData, '3.2'); },
       async analyzeV31(formData) {
-        return this.analyzeV3(formData, '3.1');
+        return this.analyzeV32(formData);
       },
       async analyzeV3(formData, version = '3') {
         const controller = new AbortController();
-        const timeout = setTimeout(() => controller.abort(), 180000);
+        const timeout = setTimeout(() => controller.abort(), 810000);
         try {
           // Same origin only. Private room photos are never retried against unrelated servers.
-          const response = await fetch(`${API_BASE_URL}/ai/v${version === '3.1' ? '3.1' : '3'}/analyze`, {
+          const response = await fetch(`${API_BASE_URL}/ai/v${['3.1', '3.2'].includes(version) ? version : '3'}/analyze`, {
             method: 'POST', body: formData, signal: controller.signal
           });
           const json = await response.json();
@@ -843,297 +829,12 @@
           throw err;
         } finally { clearTimeout(timeout); }
       },
-      async estimate(formData) {
-        // Danh sách các endpoints thông minh (ưu tiên Backend 5000, sau đó AI module 5100)
-        const endpoints = [
-          `${API_BASE_URL}/ai/estimate`,
-          'http://127.0.0.1:5000/api/ai/estimate',
-          'http://localhost:5100/api/ai/estimate',
-          'http://127.0.0.1:5100/api/ai/estimate'
-        ];
+      async analyze(formData) { return this.analyzeV32(formData); },
+      async getServices() { return request('/services'); }
 
-        // Loại bỏ endpoint trùng lặp
-        const uniqueEndpoints = [...new Set(endpoints)];
-
-        let lastError = null;
-        for (const url of uniqueEndpoints) {
-          try {
-            const controller = new AbortController();
-            const timeoutId = setTimeout(() => controller.abort(), 25000); // 25s timeout
-
-            // Đảm bảo TUYỆT ĐỐI KHÔNG set Content-Type thủ công khi gửi FormData
-            const res = await fetch(url, {
-              method: 'POST',
-              body: formData,
-              signal: controller.signal
-            });
-            clearTimeout(timeoutId);
-
-            const contentType = res.headers.get('content-type') || '';
-            let data = null;
-            if (contentType.includes('application/json')) {
-              data = await res.json().catch(() => null);
-            }
-
-            if (res.ok && data && data.success) {
-              return adaptScanResponse(data);
-            }
-
-            if (data && data.message) {
-              throw new Error(data.message);
-            }
-
-            if (!res.ok) {
-              throw new Error(`Máy chủ trả về mã lỗi HTTP ${res.status}`);
-            }
-          } catch (err) {
-            lastError = err;
-            // Nếu lỗi do abort timeout
-            if (err.name === 'AbortError') {
-              lastError = new Error('Yêu cầu phân tích AI bị quá thời gian chờ (Timeout). Vui lòng thử lại với ảnh dung lượng nhỏ hơn.');
-            }
-          }
-        }
-
-        // Nếu tất cả server đều không phản hồi (Lỗi "Failed to fetch" kinh điển)
-        const isNetworkErr = lastError && (
-          lastError.name === 'TypeError' || 
-          lastError.message.includes('fetch') || 
-          lastError.message.includes('NetworkError') ||
-          lastError.message.includes('Failed to fetch')
-        );
-
-        if (isNetworkErr) {
-          throw new Error('Không thể kết nối đến máy chủ AI. Vui lòng khởi động AI module (npm start trong ai-module, cổng 5100) hoặc backend (cổng 5000).');
-        }
-
-        throw lastError || new Error('Không thể hoàn tất phân tích hình ảnh từ máy chủ AI.');
-      },
-
-      // Quét ảnh (chỉ trả độ bẩn, không báo giá).
-      // Endpoint cũ `/ai/analyze` đã bị gỡ ở AI module v2.0 — nay dùng `/ai/scan`.
-      async analyze(formData) {
-        const endpoints = [
-          `${API_BASE_URL}/ai/scan`,
-          'http://127.0.0.1:5000/api/ai/scan',
-          'http://localhost:5100/api/ai/scan',
-          'http://127.0.0.1:5100/api/ai/scan'
-        ];
-
-        const uniqueEndpoints = [...new Set(endpoints)];
-        let lastError = null;
-
-        for (const url of uniqueEndpoints) {
-          try {
-            const controller = new AbortController();
-            const timeoutId = setTimeout(() => controller.abort(), 25000);
-
-            const res = await fetch(url, {
-              method: 'POST',
-              body: formData,
-              signal: controller.signal
-            });
-            clearTimeout(timeoutId);
-
-            const data = await res.json().catch(() => null);
-            if (res.ok && data && data.success) {
-              return adaptScanResponse(data);
-            }
-            if (data && data.message) {
-              throw new Error(data.message);
-            }
-          } catch (err) {
-            lastError = err;
-          }
-        }
-
-        if (lastError && (lastError.name === 'TypeError' || lastError.message.includes('fetch'))) {
-          throw new Error('Không thể kết nối đến máy chủ AI. Vui lòng kiểm tra lại server backend (cổng 5000 hoặc 5100).');
-        }
-
-        throw lastError || new Error('Không thể kết nối đến máy chủ AI DabClean.');
-      },
-
-      async getServices() {
-        try {
-          return await request('/ai/services');
-        } catch {
-          const res = await fetch('http://localhost:5100/api/ai/services').catch(() => null);
-          if (res && res.ok) return await res.json();
-          return null;
-        }
-      }
     }
   };
 
-  /**
-   * Chuyển kết quả từ AI module v2.0 (MobileNet) sang cấu trúc mà giao diện
-   * booking.html đang mong đợi.
-   *
-   * AI module v2.0 trả về:
-   *   { success, data: { scan: { diem, phanLoai, doTinCay, ... },
-   *                      quote: { dirtLevel, service, totalPrice, ... } } }
-   * (hoặc chỉ { scan } nếu gọi /scan)
-   *
-   * Giao diện booking.html cần:
-   *   { overallScore, rating1to5, dirtLevel, quote, analysis, spaces, recommendations }
-   *
-   * ⚠️ KHÁC BIỆT CƠ BẢN GIỮA HAI CÔNG NGHỆ:
-   * - Bản CŨ (heuristic) trả 5 chỉ số riêng lẻ: stains, clutter, dust, debris, brightness.
-   * - Bản MỚI (MobileNet) là mô hình PHÂN LOẠI 3 lớp, KHÔNG có 5 chỉ số đó.
-   *   Nó chỉ trả 3 xác suất: sach / hoiBan / ratBan.
-   * Nên ta dùng chính 3 xác suất làm "chỉ số" hiển thị, thay vì bịa số liệu.
-   * Đây là thông tin TRUNG THỰC — không bịa ra chỉ số không tồn tại.
-   */
-  function adaptScanResponse(json) {
-    const d = json.data || {};
-    const scan = d.scan || d;          // /scan trả thẳng, /estimate bọc trong .scan
-    const quote = d.quote || null;
-
-    const score = Math.round(scan.diem != null ? scan.diem : 0);
-    const conf = scan.doTinCay || {};
-
-    // Quy đổi điểm 0..100 -> thang 5 sao cho giao diện
-    const rating1to5 = Math.max(1, Math.min(5, Math.round(score / 20)));
-
-    // 3 xác suất -> phần trăm hiển thị (0..100)
-    const pct = (v) => Math.round((v || 0) * 1000) / 10;
-    const signals = {
-      sach: pct(conf.sach),
-      hoiBan: pct(conf.hoiBan),
-      ratBan: pct(conf.ratBan)
-    };
-
-    // Mỗi ảnh (khi gửi nhiều) -> một thẻ "không gian"
-    const perImage = scan.ketQuaTungAnh || [];
-    const spaces = perImage.map((r, i) => {
-      const s = Math.round(r.diem);
-      return {
-        index: i + 1,
-        filename: r.filename || `Ảnh #${i + 1}`,
-        roomType: r.filename ? r.filename.replace(/\.[^.]+$/, '') : `Ảnh #${i + 1}`,
-        score: s,
-        severity: s >= 65 ? 'high' : (s >= 35 ? 'medium' : 'low'),
-        issues: `Phân loại: ${r.phanLoaiHienThi || r.phanLoai} (${s}/100)`,
-        signals: {
-          sach: pct(r.doTinCay && r.doTinCay.sach),
-          hoiBan: pct(r.doTinCay && r.doTinCay.hoiBan),
-          ratBan: pct(r.doTinCay && r.doTinCay.ratBan)
-        }
-      };
-    });
-
-    const level = (quote && quote.dirtLevel) || {
-      level: scan.phanLoai === 'rat-ban' ? 'very_heavy'
-        : scan.phanLoai === 'hoi-ban' ? 'moderate' : 'clean',
-      label: scan.phanLoaiHienThi || scan.phanLoai,
-      score
-    };
-
-    const service = (quote && quote.service) || null;
-    const recommendations = [
-      `Mô hình AI (MobileNet) phân loại: ${scan.phanLoaiHienThi || scan.phanLoai}`,
-      `Độ tin cậy: Sạch ${signals.sach}% · Hơi bẩn ${signals.hoiBan}% · Rất bẩn ${signals.ratBan}%`,
-      service ? `Gói dịch vụ gợi ý: ${service.name}` : null,
-      quote ? `Chi phí dự kiến: ${quote.totalPriceLabel}` : null
-    ].filter(Boolean);
-
-    return {
-      success: true,
-      data: {
-        overallScore: score,
-        dirtScore: score,
-        rating1to5,
-        ratingLabel: `${rating1to5}/5 (${level.label || ''})`,
-        dirtLevel: level,
-        totalImages: scan.soAnh || 1,
-        spaces,
-        // booking.html đọc data.analysis.signals
-        analysis: {
-          overallScore: score,
-          signals,
-          analyzer: 'mobilenet-transfer-learning'
-        },
-        // booking.html đọc data.quote.finalPrice, .dirtFactor, .estimatedHours,
-        // .recommendedService
-        quote: quote ? {
-          finalPrice: quote.totalPrice,
-          formatVnd: quote.totalPriceLabel,
-          dirtFactor: (quote.dirtLevel && quote.dirtLevel.priceMultiplier) || 1,
-          estimatedHours: '~3 - 4 giờ',
-          recommendedService: service ? {
-            id: service.code === 'premium' ? 2 : 1,
-            name: service.name,
-            description: service.description
-          } : null,
-          breakdown: quote.breakdown,
-          priceRange: quote.priceRange
-        } : null,
-        recommendations,
-        summary: `AI phân loại độ bẩn: ${level.label} (${score}/100).`
-      }
-    };
-  }
-
-  // ============================================================
-  // GLOBAL BOOKING FLOW INTERCEPTOR CHO KHÁCH VÃNG LAI
-  // Tự động kiểm tra trạng thái đăng nhập khi khách bấm đặt dịch vụ
-  // ============================================================
-  document.addEventListener('click', function (e) {
-    const target = e.target.closest('a, button');
-    if (!target) return;
-
-    // Không can thiệp nếu đang ở trang login hoặc register
-    const currentPath = window.location.pathname.split('/').pop();
-    if (currentPath === 'login.html' || currentPath === 'register.html') return;
-
-    const href = target.getAttribute('href') || '';
-    const isBookingLink = href.includes('booking.html');
-    const isBookingAction = target.dataset.action === 'book';
-    
-    // Kiểm tra text nút
-    const text = (target.textContent || '').trim().toLowerCase();
-    const isBookingText = text.includes('đặt dịch vụ ngay') || 
-                          text.includes('sử dụng dịch vụ') || 
-                          text.includes('đặt lịch ngay') || 
-                          text.includes('đặt ngay') || 
-                          text.includes('tiến hành đặt dịch vụ') ||
-                          text.includes('tiếp tục đặt lịch');
-
-    const isExcluded = target.classList.contains('btn-service-detail') || 
-                       href.startsWith('#why') || 
-                       href.startsWith('#customer') || 
-                       href.startsWith('#cleaning') || 
-                       href.startsWith('#calculator');
-
-    if ((isBookingLink || isBookingAction || isBookingText) && !isExcluded) {
-      if (!(window.DabCleanAPI || window.CleanovaAPI).auth.isLoggedIn()) {
-        e.preventDefault();
-        e.stopPropagation();
-
-        let destination = href;
-        if (!destination || destination === '#' || destination.startsWith('javascript:')) {
-          destination = 'booking.html';
-        }
-
-        // Nếu người dùng bấm từ widget tính giá trên trang chủ, mang theo dịch vụ đã chọn
-        const calcService = document.getElementById('calc-service');
-        if (calcService && (target.dataset.i18n === 'calc_btn_continue' || text.includes('tiếp tục đặt lịch'))) {
-          const sVal = calcService.value;
-          const serviceIdMap = { regular_cleaning: 1, deep_cleaning: 2, move_in_out: 3, office_cleaning: 4, sofa_carpet: 5 };
-          const sid = serviceIdMap[sVal] || 1;
-          destination = `booking.html?service_id=${sid}`;
-        }
-
-        (window.DabCleanAPI || window.CleanovaAPI).auth.requireAuth(destination, 'Vui lòng đăng nhập để tiếp tục sử dụng dịch vụ DabClean');
-      }
-    }
-  }, true);
-
-  // ============================================================
-  // ĐỒNG BỘ THANH ĐIỀU HƯỚNG & TRẠNG THÁI TÀI KHOẢN TOÀN HỆ THỐNG
-  // Đảm bảo không trang nào bị mất mục khi điều hướng giữa các trang
-  // ============================================================
   function syncGlobalHeader() {
     const api = window.DabCleanAPI || window.CleanovaAPI;
     if (!api || !api.auth) return;

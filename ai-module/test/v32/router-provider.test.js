@@ -1,0 +1,20 @@
+const test=require('node:test'),assert=require('node:assert/strict');
+const {endpoint,parseCompletion}=require('../../src/v32/routerProvider');
+const raw=()=>({scene:'room',overall:{level:'hoi-ban',reason:'Dấu hiệu nhẹ theo ba tiêu chí.'},criteria:Object.fromEntries(['surface_clutter','dust_grime','stains_mold'].map(k=>[k,{observable:true,ambiguous:false,coverage:'adequate',assessed_components:Object.keys(require('../../src/v32/provider').COMPONENTS[k]),score:25,evidence:'Vết bám nhìn thấy',location:'sàn',limitation:'Chỉ vùng nhìn thấy'}]))});
+test('9Router accepts only configured loopback base URLs without embedded credentials',()=>{assert.equal(endpoint('http://localhost:20128/v1').href,'http://localhost:20128/v1/chat/completions');for(const u of ['https://evil.example/v1','http://localhost.evil/v1','http://user:secret@localhost:20128/v1','http://localhost:20128/v1?key=secret','http://localhost:20128/other','file:///tmp/a'])assert.throws(()=>endpoint(u));});
+test('9Router requires complete JSON and validates every criterion independently',()=>{assert.equal(parseCompletion({choices:[{finish_reason:'stop',message:{content:JSON.stringify(raw())}}]}).metrics.length,3);assert.throws(()=>parseCompletion({choices:[{finish_reason:'length',message:{content:JSON.stringify(raw())}}]}));assert.throws(()=>parseCompletion({choices:[{message:{content:'not JSON'}}]}));const r=raw();r.criteria.dust_grime.score=150;assert.throws(()=>parseCompletion({choices:[{message:{content:JSON.stringify(r)}}]}));});
+const {analyze}=require('../../src/v32/routerProvider');
+test('request pins model and embeds image; proxy errors never leak raw response or API key',async()=>{
+ const oldFetch=global.fetch,oldKey=process.env.AI_V32_ROUTER_API_KEY,oldModel=process.env.AI_V32_ROUTER_MODEL;
+ process.env.AI_V32_ROUTER_API_KEY='test-secret-not-a-real-key';process.env.AI_V32_ROUTER_MODEL='cx/gpt-6.1-sol';
+ try{let called=0;global.fetch=async(url,options)=>{called++;assert.equal(options.redirect,'error');const body=JSON.parse(options.body);assert.equal(body.model,'cx/gpt-6.1-sol');assert.equal(body.stream,false);assert.equal(body.messages[1].content[1].image_url.url,'data:image/jpeg;base64,'+Buffer.from('image').toString('base64'));assert.equal(options.headers.Authorization,'Bearer test-secret-not-a-real-key');return new Response(JSON.stringify({model:'gpt-6.1-sol',choices:[{finish_reason:'stop',message:{content:JSON.stringify(raw())}}]}));};const result=await analyze(Buffer.from('image'));assert.equal(result.model.requested,'cx/gpt-6.1-sol');assert.equal(called,1);
+ for(const status of [401,429,500]){global.fetch=async()=>new Response('SECRET internal stack upstream token',{status});await assert.rejects(analyze(Buffer.from('image')),e=>!e.message.includes('SECRET')&&e.status===503);}
+ global.fetch=async()=>new Response('x'.repeat(262145));await assert.rejects(analyze(Buffer.from('image')),e=>e.code==='MODEL_OUTPUT_LIMIT');
+ }finally{global.fetch=oldFetch;if(oldKey===undefined)delete process.env.AI_V32_ROUTER_API_KEY;else process.env.AI_V32_ROUTER_API_KEY=oldKey;if(oldModel===undefined)delete process.env.AI_V32_ROUTER_MODEL;else process.env.AI_V32_ROUTER_MODEL=oldModel;}
+});
+test('multiple images overview is requested from the model with all three criteria, not averaged',async()=>{
+ const oldFetch=global.fetch;try{
+ global.fetch=async(url,options)=>{const body=JSON.parse(options.body);assert.equal(body.model,'cx/gpt-6.1-sol');assert.equal(body.messages[1].content.includes('metrics'),true);assert.equal(body.messages[1].content.includes('image_url'),false);return new Response(JSON.stringify({choices:[{finish_reason:'stop',message:{content:JSON.stringify({level:'hoi-ban',reason:'Có dấu hiệu bẩn nhẹ ở các ảnh.'})}}]}));};
+ const result=await require('../../src/v32/routerProvider').summarize([{metrics:[{key:'surface_clutter',score:0},{key:'dust_grime',score:15},{key:'stains_mold',score:null}]}]);assert.equal(result.level,'hoi-ban');assert.equal(result.source,'model');
+ }finally{global.fetch=oldFetch;}
+});

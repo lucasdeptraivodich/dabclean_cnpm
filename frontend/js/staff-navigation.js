@@ -65,12 +65,21 @@
       route.searchParams.set('destination', address);
       route.searchParams.set('dir_action', 'navigate');
       directions.setAttribute('href', route.href);
-      const locate = element('button', '📍 Dùng GPS của tôi làm điểm xuất phát');
-      locate.type = 'button';
+      const secure = window.isSecureContext !== false;
+      const locate = element(secure ? 'button' : 'a', secure ? '📍 Dùng GPS của tôi làm điểm xuất phát' : '📍 Dùng GPS trong Google Maps');
+      if (secure) locate.type = 'button';
+      else {
+        locate.setAttribute('href', route.href);
+        locate.target = '_blank';
+        locate.rel = 'noopener noreferrer';
+      }
       locate.className = 'btn btn-secondary';
-      const gpsStatus = element('p', 'Bạn có thể mở Google Maps để chọn điểm xuất phát nếu không bật GPS.');
+      const gpsStatus = element('p', secure
+        ? 'Bạn có thể mở Google Maps để chọn điểm xuất phát nếu không bật GPS.'
+        : 'Trình duyệt chặn GPS trên địa chỉ LAN dùng HTTP. Bấm “Dùng GPS trong Google Maps”, cho phép vị trí trong Google Maps và chọn Vị trí của bạn. GPS trực tiếp trên web cần HTTPS hoặc localhost.');
       gpsStatus.setAttribute('role', 'status');
       locate.addEventListener('click', () => {
+        if (!secure) return; // The HTTPS Maps link handles location on LAN HTTP.
         if (!navigator.geolocation) {
           gpsStatus.textContent = 'Trình duyệt không hỗ trợ GPS. Hãy chọn điểm xuất phát trong Google Maps.';
           return;
@@ -88,12 +97,17 @@
           route.searchParams.set('origin', `${latitude},${longitude}`);
           directions.setAttribute('href', route.href);
           gpsStatus.textContent = `Đã lấy vị trí nhân viên${Number.isFinite(accuracy) ? ` (sai số khoảng ${Math.round(accuracy)} m)` : ''}. Bấm mở Google Maps để đi đến địa chỉ khách.`;
-        }, () => {
+        }, error => {
           if (current !== generation) return;
           locate.disabled = false;
           route.searchParams.delete('origin');
           directions.setAttribute('href', route.href);
-          gpsStatus.textContent = 'Không lấy được GPS. Kiểm tra quyền vị trí/HTTPS hoặc chọn điểm xuất phát trong Google Maps.';
+          const reasons = {
+            1: 'Quyền vị trí bị chặn. Hãy cho phép vị trí cho website trong trình duyệt và bật dịch vụ vị trí trên thiết bị.',
+            2: 'Thiết bị không xác định được vị trí. Kiểm tra dịch vụ vị trí và kết nối mạng rồi thử lại.',
+            3: 'Hết thời gian lấy vị trí. Kiểm tra tín hiệu GPS rồi thử lại.'
+          };
+          gpsStatus.textContent = 'Không lấy được GPS. ' + (reasons[error && error.code] || 'Không xác định được vị trí trên thiết bị này.') + ' Bạn vẫn có thể chọn điểm xuất phát trong Google Maps.';
         }, { enableHighAccuracy: true, timeout: 15000, maximumAge: 0 });
       });
       content.append(hint, map, locate, directions, gpsStatus);

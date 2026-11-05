@@ -1,20 +1,20 @@
 # 🌿 DabClean - Nền Tảng Dịch Vụ Dọn Vệ Sinh Chuyên Nghiệp (Full-Stack)
 
-> **AI V3 (thử nghiệm, 29/10/2026):** Xem [báo cáo triển khai và giới hạn](docs/AI_V3_REPORT.md) và [hướng dẫn dữ liệu/benchmark](ai-module/benchmark/README.md). V3 chạy suy luận local; chưa có benchmark đa tiêu chí độc lập, nên không công bố độ chính xác hoặc phần trăm độ bẩn. Phần tài liệu V2 bên dưới không phải bằng chứng nghiệm thu V3.
 
-> **AI V3.1:** Đã có sáu thanh có trạng thái Chưa xác định, scoring engine ba mức, VLM Ollama chạy thật local, công cụ gán nhãn và hiệu chuẩn. Đọc [báo cáo V3.1](docs/AI_V31_REPORT.md) để xem điều kiện mở điểm, test và giới hạn. Chưa có artifact hiệu chuẩn thật hoặc benchmark accuracy đủ nhãn; không ép ra sáu số. Demo: `http://127.0.0.1:5100/v3.html`; gán nhãn: `/label-v31.html`. Trong `ai-module/`, chạy `npm run ollama:local` ở một terminal và `npm start` ở terminal khác (runtime/weights local đã chuẩn bị trên máy này, không đưa vào Git).
 
 ### Demo đặt lịch / nhân viên không cần MySQL
 
-Trong `D:\Documents\DabClean\backend`, cài dependency bằng `npm ci` nếu chưa cài, rồi chạy:
+Trong thư mục `backend/` của dự án, cài dependency bằng `npm ci` nếu chưa cài, rồi chạy:
 
 ```powershell
-npm run demo
+node server.js
 ```
 
 Mở `http://127.0.0.1:5000/login.html`. Khách demo: `demo@nova.app` / `NovaDemo2026!`; nhân viên: `staff@cleanova.vn` / `Staff@Cleanova2026!`. Đặt lịch ở tài khoản khách, đăng nhập nhân viên, mở **Đơn chờ nhận → Nhận ca → Bản đồ / Chỉ đường**. Mỗi ví khách/tín dụng khởi tạo 1.000.000đ giả lập, ví thu nhập bắt đầu 0đ. Giao diện có nhãn DEMO; không chuyển khoản hoặc thanh toán tiền thật.
 
-`npm run demo` bật `DEMO_MODE=true`, `NODE_ENV=development`, mặc định chỉ nghe localhost. Chế độ này không kết nối MySQL và không chạy migration. Dữ liệu chỉ tồn tại trong RAM, mất khi dừng/khởi động lại; nếu đang có server cổng 5000, dừng server cũ trước. Có thể cấu hình `DEMO_MODE=true` trực tiếp khi `NODE_ENV=development` hoặc `test`; production/unset bị từ chối. Chạy `npm start` với `DEMO_MODE=false` để dùng luồng MySQL hiện có. Không dùng demo để xác nhận tính đúng đắn giao dịch MySQL hoặc triển khai thật.
+`node server.js` và `npm start` mặc định bật demo khi `NODE_ENV` chưa đặt hoặc là `development`, và `DEMO_MODE` chưa đặt. Có sẵn tài khoản, đơn mẫu, ví giả lập; không kết nối MySQL và không chạy migration. Server mặc định nghe `0.0.0.0:5000` để truy cập qua LAN; đặt `HOST=127.0.0.1` nếu chỉ dùng trên máy này. Dữ liệu chỉ tồn tại trong RAM, mất khi dừng/khởi động lại; nếu đang có server cổng 5000, dừng server cũ trước.
+
+Đặt `DEMO_MODE=false` để dùng luồng MySQL hiện có. Khi triển khai thật, bắt buộc cấu hình `NODE_ENV=production`, `DEMO_MODE=false` cùng secret và MySQL phù hợp; production luôn từ chối `DEMO_MODE=true`. Các môi trường khác không tự bật demo. Lệnh `npm run demo` vẫn có thể bật demo rõ ràng trong development, mặc định chỉ nghe localhost. Không dùng demo để xác nhận tính đúng đắn giao dịch MySQL hoặc triển khai thật.
 
 Demo hỗ trợ nhận ca bằng ví giả lập, đọc ví/lịch sử, thanh toán/hoàn ví khách, quyết toán giả lập, chuyển thu nhập sang tín dụng và hủy theo quyền/trạng thái hiện có. Nhận lại đơn không trừ tiền lần hai; chỉ một nhân viên có thể nhận cùng một đơn. Nhận qua chuyển khoản ngân hàng và rút tiền thật bị chặn. Nạp trực tiếp ví tín dụng vẫn bị vô hiệu hóa theo chính sách hiện có; khởi động lại demo cấp lại tiền giả và xóa toàn bộ dữ liệu RAM. Bản đồ vẫn cần Internet và GPS cần quyền vị trí/HTTPS hoặc localhost.
 
@@ -23,27 +23,48 @@ Kiểm thử từ thư mục gốc:
 ```powershell
 node backend/test-demo-mode.js
 node backend/test-demo-store.js
+node backend/test-server-demo-default.js
 ```
 
 Xem [báo cáo demo và giới hạn](docs/DEMO_MODE.md). Không thêm dependency hoặc thay schema.
 
-### Chạy AI V3
+### Thanh toán đặt lịch bằng VietQR BIDV
 
-Dùng Node.js 22 trở lên (đã kiểm thử với Node 24). Chạy từng lệnh trong đúng thư mục:
+Chọn **Chuyển khoản QR → Xác nhận đặt lịch** ở trang đặt lịch vệ sinh hoặc chăm sóc. Khi backend tạo đơn thành công, hộp VietQR hiển thị ngân hàng **BIDV**, tài khoản **8888444265**, số tiền nguyên VND lấy từ `total_price` của đơn đã lưu và nội dung `DABCLEAN <mã đơn không dấu gạch ngang>`. Client không quyết định số tiền hoặc tài khoản nhận qua request đặt lịch.
+
+API tạo đơn và chi tiết đơn bổ sung trường `data.payment_qr`; phương thức khác, đơn đã thanh toán/hoàn tiền/hủy, đơn chờ khảo sát hoặc số tiền không hợp lệ trả `null`. Không đổi schema, dependency hay cấu hình `.env`. Chi tiết người đặt không được gửi tới dịch vụ ảnh QR; Quick Link chỉ chứa tài khoản nhận, số tiền và mã tham chiếu. Ảnh cần Internet; khi tải lỗi vẫn có thông tin chuyển khoản và nút tải lại.
+
+QR chỉ hỗ trợ điền thông tin chuyển khoản, **không tự xác nhận đã nhận tiền**. Chưa tích hợp webhook/đối soát giao dịch ngân hàng cho thanh toán đơn khách hàng; quét QR hoặc đóng hộp QR không làm `payment_status` thành `paid`. Không đặt lại đơn chỉ vì QR tải lỗi. Chế độ demo hiển thị cảnh báo không chuyển tiền thật. Tên chủ tài khoản chưa được xác minh tự động; khách cần kiểm tra người thụ hưởng trên ứng dụng ngân hàng. Tài khoản chiết khấu của nhân viên là luồng riêng, không bị thay đổi.
+
+Có thể mở lại QR tại **Đơn của tôi → Chi tiết đơn**. Mỗi lần mở, giao diện tải chi tiết mới từ backend và hiện QR ngay trong hộp chi tiết nếu đơn chuyển khoản còn chưa thanh toán. Đơn đã hủy/đã trả tiền/hoàn tiền không hiện lại mã yêu cầu thanh toán. Đặt lịch mới chỉ hỗ trợ `cash`, `bank_transfer`, `wallet`; MoMo/VNPAY đã bỏ khỏi form và API tạo đơn, nhưng giữ khả năng hiển thị lịch sử cũ, không sửa/xóa dữ liệu cũ. Bản sửa hủy khách trong demo giữ kiểm tra trạng thái hiện tại, sửa vị trí đọc tham số ID của câu lệnh cập nhật.
+
+Kiểm thử từ thư mục gốc:
 
 ```powershell
-cd D:\Documents\DabClean\backend
-npm ci
-cd ..\ai-module
-npm ci
-npm run prepare:v3
-npm test
-npm start
+node backend/test-vietqr.js
+node ai-module/test/booking-qr.test.cjs
+node backend/test-customer-cancel.js
+node ai-module/test/my-bookings-payment.test.cjs
 ```
 
-Mở `http://localhost:5100/v3.html`. Để dùng scanner V3 trên trang đặt lịch, chạy thêm `npm start` trong `backend/` và mở ứng dụng ở cổng 5000. Cache trọng số được lưu local và không commit. Khi triển khai offline, chuẩn bị cache rồi đặt `AI_V3_OFFLINE=true`; thiếu model trả lỗi rõ ràng. Dừng server trước khi chạy lại `npm ci` trên Windows để tránh khóa DLL của Sharp/ONNX.
+Tham khảo [VietQR Quick Link](https://www.vietqr.io/qr-dong), [báo cáo thay đổi](docs/VIETQR_BOOKING.md).
 
-V3 thêm dependency trong `ai-module/` và cập nhật bản vá dependency; không cần migration database, không đổi bảng giá. Cấu hình provider tích hợp thuộc `backend/.env`; provider standalone thuộc `ai-module/.env`. Không sao chép secret mẫu để dùng production.
+### Chạy backend kèm AI scanner bằng một lệnh
+
+Sau khi đã cài dependency riêng cho `backend/` và `ai-module/`, chỉ cần chạy:
+
+```powershell
+cd backend
+node server.js
+```
+
+Mở `http://localhost:5000/booking.html`. Scanner được mount trực tiếp vào backend, không cần chạy `node server.js` trong `ai-module/` hay mở cổng 5100. 9Router tại địa chỉ cấu hình phải đang hoạt động và có quyền dùng model. Sao chép cấu hình AI mẫu từ `backend/.env.example` sang `backend/.env` khi cần; không commit khóa thật. Kiểm tra luồng khởi động tích hợp bằng `npm run test:ai` trong `backend/`.
+
+### AI scanner qua ChatGPT / 9Router
+
+Scanner dùng `cx/gpt-6.1-sol` qua `http://localhost:20128/v1`, không cần model local hoặc training. Cài dependency riêng trong `ai-module/` bằng `npm ci`, chạy `npm start` trong `backend/` để dùng trên trang đặt lịch cổng 5000; có thể chạy `npm start` trong `ai-module/` để thử riêng cổng 5100.
+
+Cấu hình gateway theo `ai-module/.env.example`; bản tích hợp đọc `backend/.env`. Khóa chỉ lưu ở backend nếu 9Router yêu cầu. Xem [hướng dẫn và kiểm thử](docs/AI_9ROUTER.md).
 
 > **Slogan:**  
 > 🇬🇧 *A Cleaner Space, A Better Life.*  

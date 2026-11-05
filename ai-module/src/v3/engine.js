@@ -3,8 +3,8 @@ const path = require('path');
 const { Worker } = require('worker_threads');
 const { failure } = require('./quality');
 
-function runAnalysis(files, { provider = 'clip', signal, timeoutMs = 150000,
-  workerPath = path.join(__dirname, 'worker.js') } = {}) {
+function runAnalysis(files, { provider = '9router', signal, timeoutMs = 150000,
+  workerPath = path.join(__dirname, '../v32/worker.js') } = {}) {
   return new Promise((resolve, reject) => {
     const worker = new Worker(workerPath, { resourceLimits: { maxOldGenerationSizeMb: 768 } });
     let settled = false;
