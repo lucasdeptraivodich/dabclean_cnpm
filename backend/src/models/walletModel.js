@@ -131,9 +131,9 @@ const WalletModel = {
       }
 
       // 2. Khóa dòng bản ghi ví người dùng (Row-level lock chống Race Condition)
-      await this.getOrCreateWallet(userId, connection);
+      await this.getOrCreateWallet(userId, connection, 'customer');
       const [wallets] = await connection.query(
-        'SELECT * FROM wallets WHERE user_id = ? FOR UPDATE',
+        'SELECT * FROM wallets WHERE user_id = ? AND wallet_type = "customer" FOR UPDATE',
         [userId]
       );
       const wallet = wallets[0];
@@ -234,9 +234,9 @@ const WalletModel = {
       const amountToPay = parseFloat(booking.total_price) || 0;
 
       // 2. Khóa dòng bản ghi ví người dùng
-      await this.getOrCreateWallet(userId, connection);
+      await this.getOrCreateWallet(userId, connection, 'customer');
       const [wallets] = await connection.query(
-        'SELECT * FROM wallets WHERE user_id = ? FOR UPDATE',
+        'SELECT * FROM wallets WHERE user_id = ? AND wallet_type = "customer" FOR UPDATE',
         [userId]
       );
       const wallet = wallets[0];
@@ -351,9 +351,9 @@ const WalletModel = {
       }
 
       // 2. Khóa dòng bản ghi ví người dùng
-      await this.getOrCreateWallet(booking.user_id, connection);
+      await this.getOrCreateWallet(booking.user_id, connection, 'customer');
       const [wallets] = await connection.query(
-        'SELECT * FROM wallets WHERE user_id = ? FOR UPDATE',
+        'SELECT * FROM wallets WHERE user_id = ? AND wallet_type = "customer" FOR UPDATE',
         [booking.user_id]
       );
       const wallet = wallets[0];
@@ -1318,6 +1318,75 @@ const WalletModel = {
       WHERE u.role = 'staff'
       ORDER BY cw.balance ASC, u.id ASC
     `);
+  },
+
+  /**
+   * Cộng tiền Tip tự nguyện của khách hàng vào Ví Thu Nhập ('earnings') của nhân viên
+   */
+  async creditStaffTip({ staffId, bookingId, bookingCode, amount }) {
+    if (!staffId || !amount || amount <= 0) return null;
+    if (db.demo) return db.demo.creditTip({ staffId, bookingId, bookingCode, amount });
+
+    const pool = db.getPool();
+    if (!pool || !db.isMySQLConnected()) return null;
+
+    const connection = await pool.getConnection();
+    try {
+      await connection.beginTransaction();
+      await this.getOrCreateWallet(staffId, connection, 'earnings');
+      const [wallets] = await connection.query(
+        'SELECT * FROM wallets WHERE user_id = ? AND wallet_type = "earnings" FOR UPDATE',
+        [staffId]
+      );
+      const wallet = wallets[0];
+      if (!wallet) {
+        await connection.rollback();
+        return null;
+      }
+
+      const tipAmount = Math.round(parseFloat(amount) || 0);
+      const balanceBefore = parseFloat(wallet.balance) || 0;
+      const balanceAfter = balanceBefore + tipAmount;
+
+      const now = new Date();
+      const dateStr = now.toISOString().slice(0, 10).replace(/-/g, '');
+      const randomHex = crypto.randomBytes(3).toString('hex').toUpperCase();
+      const txnCode = `WTX-TIP-${dateStr}-${randomHex}`;
+
+      await connection.query(
+        'UPDATE wallets SET balance = ? WHERE id = ?',
+        [balanceAfter, wallet.id]
+      );
+
+      const desc = `Nhận tiền Tip tự nguyện từ khách hàng cho đơn #${bookingCode || bookingId}`;
+      const [txResult] = await connection.query(
+        `INSERT INTO wallet_transactions 
+         (transaction_code, wallet_id, user_id, type, amount, balance_before, balance_after, status, description, reference_type, reference_id)
+         VALUES (?, ?, ?, 'wage', ?, ?, ?, 'completed', ?, 'booking_tip', ?)`,
+        [txnCode, wallet.id, staffId, tipAmount, balanceBefore, balanceAfter, desc, String(bookingId)]
+      );
+
+      await connection.query(
+        `INSERT INTO wallet_ledger_entries 
+         (transaction_id, wallet_id, entry_type, amount, running_balance, notes)
+         VALUES (?, ?, 'credit', ?, ?, ?)`,
+        [txResult.insertId, wallet.id, tipAmount, balanceAfter, desc]
+      );
+
+      await connection.commit();
+      return {
+        success: true,
+        transaction_code: txnCode,
+        amount: tipAmount,
+        balance_before: balanceBefore,
+        balance_after: balanceAfter
+      };
+    } catch (err) {
+      await connection.rollback();
+      throw err;
+    } finally {
+      connection.release();
+    }
   }
 };
 

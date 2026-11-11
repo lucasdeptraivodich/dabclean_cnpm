@@ -127,5 +127,12 @@ module.exports = function createDemoStore(data) {
     const stats = { gross_earnings: sum('staff_wage'), commission_deducted: sum('platform_commission'), net_earnings: sum('staff_net_wage', b => b.wage_status === 'paid'), net_earnings_paid: sum('staff_net_wage', b => b.wage_status === 'paid'), pending_wages: sum('staff_net_wage', b => ['pending', 'approved'].includes(b.wage_status)), completed_jobs_count: complete.length, paid_jobs_count: complete.filter(b => b.wage_status === 'paid').length };
     return clone({ demo_mode: true, wallet: w.earnings_wallet, ...w, available_balance: w.earnings_wallet.balance, credit_balance: w.credit_wallet.balance, summary: stats, ...stats, bookings: rows, transactions: getTransactions(id).transactions });
   }
-  return { getWallet: (id, type) => clone(wallet(id, type)), staffWallets, getTransactions, summary, accept, topup, payBooking, refundBooking, transfer, settle, cancellation };
+  function creditTip({ staffId, bookingId, bookingCode, amount }) {
+    const n = Number(amount);
+    if (!Number.isSafeInteger(n) || n <= 0) return { demo_mode: true, success: false };
+    const earnings = wallet(staffId, 'earnings');
+    const tx = record(earnings, n, 'wage', bookingId, `Tiền tip khách thưởng đơn #${bookingCode || bookingId}`);
+    return clone({ demo_mode: true, success: true, amount: n, balance_after: tx.balance_after });
+  }
+  return { getWallet: (id, type) => clone(wallet(id, type)), staffWallets, getTransactions, summary, accept, topup, payBooking, refundBooking, transfer, settle, cancellation, creditTip };
 };

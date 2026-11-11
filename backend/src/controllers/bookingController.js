@@ -247,6 +247,9 @@ const bookingController = {
       }
 
       // Tính giá & tiền công thống nhất chính thức qua Pricing Service (kèm phụ phí Add-ons & Voucher)
+      const commConfig = await BookingModel.getCommissionConfig();
+      const activeCommRate = commConfig && commConfig.rate !== undefined ? commConfig.rate : 0.20;
+
       let calculation;
       try {
         calculation = pricingService.calculatePrice(service, {
@@ -258,6 +261,7 @@ const bookingController = {
           voucher_discount: voucherDiscountAmount,
           hasUsedPromo: false,
           addons: addons || extras || null,
+          commission_rate: activeCommRate,
           // Post construction options:
           pricing_type: isPostConstruction ? (pricing_type || 'm2') : null,
           building_type: isPostConstruction ? building_type : null,
@@ -321,6 +325,9 @@ const bookingController = {
             payment_method,
             duration_hours: finalDurationHours,
             staff_wage: staffWage,
+            commission_rate: calculation.commissionRate,
+            platform_commission: calculation.platformCommission,
+            staff_net_wage: calculation.staffNetWage,
             wage_status: 'pending',
             package_type: normalizedPackage,
             shift_choice: shift_choice ? sanitizeInput(shift_choice) : null,
@@ -539,6 +546,9 @@ const bookingController = {
         voucherDiscountAmount = vCheck.discountAmount;
       }
 
+      const commConfig = await BookingModel.getCommissionConfig();
+      const activeCommRate = commConfig && commConfig.rate !== undefined ? commConfig.rate : 0.20;
+
       const calculation = pricingService.calculatePrice(service, {
         area_size: isCareService ? 'care' : (isNumericArea ? area_size : String(area_size)),
         frequency,
@@ -548,6 +558,7 @@ const bookingController = {
         voucher_discount: voucherDiscountAmount,
         hasUsedPromo: alreadyUsedPromo,
         addons: addons || extras || null,
+        commission_rate: activeCommRate,
         pricing_type: isPostConstruction ? (pricing_type || 'm2') : null,
         building_type: isPostConstruction ? (building_type || 'apartment') : null,
         area_m2: isPostConstruction ? area_m2 : null,
@@ -691,6 +702,18 @@ const bookingController = {
           });
         } catch (commErr) {
           console.error('Lỗi hoàn chiết khấu cho thợ khi khách hủy đơn:', commErr.message);
+        }
+      }
+
+      // Hoàn trả lượt sử dụng voucher nếu đơn hàng bị hủy có áp dụng mã giảm giá
+      if (booking.discount_code) {
+        try {
+          const usedVoucher = await VoucherModel.getByCode(booking.discount_code);
+          if (usedVoucher) {
+            await VoucherModel.rollbackUsage(usedVoucher.id, id);
+          }
+        } catch (vErr) {
+          console.error('Lỗi hoàn lượt voucher khi khách hủy đơn:', vErr.message);
         }
       }
 
@@ -912,9 +935,19 @@ const bookingController = {
       if (!saved) {
         return res.status(409).json({ success: false, message: 'Không thể lưu tip; đơn có thể vừa được cập nhật.' });
       }
+      try {
+        await WalletModel.creditStaffTip({
+          staffId: booking.staff_id,
+          bookingId: id,
+          bookingCode: booking.booking_code,
+          amount
+        });
+      } catch (tipErr) {
+        console.error('Lỗi cộng tiền tip vào ví nhân viên:', tipErr.message);
+      }
       res.status(201).json({
         success: true,
-        message: 'Đã ghi nhận tip tự nguyện của bạn dành cho nhân viên.',
+        message: 'Đã ghi nhận tip tự nguyện của bạn và chuyển vào Ví Thu Nhập của nhân viên.',
         data: { amount }
       });
     } catch (err) {

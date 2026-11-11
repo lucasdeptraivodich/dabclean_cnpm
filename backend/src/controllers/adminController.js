@@ -126,6 +126,18 @@ const adminController = {
             console.error('Lỗi hoàn chiết khấu nhân viên khi Admin hủy đơn:', commErr.message);
           }
         }
+
+        // Hoàn trả lượt sử dụng voucher nếu đơn bị hủy có áp dụng mã giảm giá
+        if (booking.discount_code) {
+          try {
+            const usedVoucher = await VoucherModel.getByCode(booking.discount_code);
+            if (usedVoucher) {
+              await VoucherModel.rollbackUsage(usedVoucher.id, id);
+            }
+          } catch (vErr) {
+            console.error('Lỗi hoàn lượt voucher khi Admin hủy đơn:', vErr.message);
+          }
+        }
       } else {
         const changed = await BookingModel.updateStatus(id, status, '', booking.status);
         if (!changed && status !== booking.status) {
@@ -288,11 +300,15 @@ const adminController = {
         });
       }
 
+      const commConfig = await BookingModel.getCommissionConfig();
+      const activeRate = commConfig && commConfig.rate !== undefined ? commConfig.rate : 0.20;
+
       const safeNotes = quote_notes ? sanitizeInput(quote_notes) : '';
       await BookingModel.confirmQuote(id, {
         confirmed_price: parsedPrice,
         quote_notes: safeNotes,
-        staff_wage: parsedWage
+        staff_wage: parsedWage,
+        commission_rate: activeRate
       });
 
       const updated = await BookingModel.getById(id);

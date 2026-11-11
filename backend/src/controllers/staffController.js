@@ -531,15 +531,40 @@ const staffController = {
 
       const updatedNotes = staff_notes !== undefined ? sanitizeInput(staff_notes) : (booking.staff_notes || '');
       const sanitizedCancelReason = cancellationReason ? sanitizeInput(cancellationReason) : '';
-      // Bảo vệ Bug 7: Kiểm tra trạng thái hiện tại (optimistic concurrency) để chống race condition
-      const changed = await BookingModel.updateStaffTaskStatus(
-        taskId, req.user.id, status, updatedNotes, status === 'cancelled' ? sanitizedCancelReason : '', booking.status
-      );
-      if (!changed && !isSameStatus) {
-        return res.status(409).json({ success: false, message: 'Trạng thái công việc vừa thay đổi. Hãy tải lại danh sách.' });
+
+      if (status === 'cancelled' && booking.payment_method === 'wallet' && booking.payment_status === 'paid') {
+        await WalletModel.refundBooking({
+          bookingId: taskId,
+          reason: `Nhân viên hủy ca: ${sanitizedCancelReason}`,
+          adminId: req.user.id
+        });
+        if (updatedNotes !== (booking.staff_notes || '')) {
+          await BookingModel.updateStaffTaskStatus(
+            taskId, req.user.id, 'cancelled', updatedNotes, sanitizedCancelReason, 'cancelled'
+          );
+        }
+      } else {
+        // Bảo vệ Bug 7: Kiểm tra trạng thái hiện tại (optimistic concurrency) để chống race condition
+        const changed = await BookingModel.updateStaffTaskStatus(
+          taskId, req.user.id, status, updatedNotes, status === 'cancelled' ? sanitizedCancelReason : '', booking.status
+        );
+        if (!changed && !isSameStatus) {
+          return res.status(409).json({ success: false, message: 'Trạng thái công việc vừa thay đổi. Hãy tải lại danh sách.' });
+        }
       }
 
       if (status === 'cancelled') {
+        if (booking.discount_code) {
+          try {
+            const VoucherModel = require('../models/voucherModel');
+            const usedVoucher = await VoucherModel.getByCode(booking.discount_code);
+            if (usedVoucher) {
+              await VoucherModel.rollbackUsage(usedVoucher.id, taskId);
+            }
+          } catch (vErr) {
+            console.error('Lỗi hoàn lượt voucher khi nhân viên hủy ca:', vErr.message);
+          }
+        }
         try {
           await CommissionPaymentModel.handleCancellationRefund({
             bookingId: taskId,

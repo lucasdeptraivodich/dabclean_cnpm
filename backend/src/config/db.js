@@ -456,6 +456,73 @@ const inMemoryData = {
 inMemoryData.jobPhotos = [];
 inMemoryData.bookingNotifications = [];
 inMemoryData.staff_commission_payments = [];
+inMemoryData.system_configs = [
+  {
+    id: 1,
+    config_key: 'staff_commission_rate',
+    config_value: JSON.stringify({
+      rate: 0.20,
+      description: 'Tỷ lệ chiết khấu CleanNova mặc định khấu trừ từ tiền công nhân viên (20%)'
+    }),
+    description: 'Tỷ lệ chiết khấu CleanNova khấu trừ từ tiền công nhân viên',
+    updated_by: null,
+    updated_at: new Date('2026-01-01T00:00:00Z')
+  }
+];
+inMemoryData.vouchers = [
+  {
+    id: 1,
+    code: 'DABCLEAN20',
+    discount_type: 'percentage',
+    discount_value: 20,
+    max_discount_amount: 500000,
+    min_order_amount: 0,
+    applicable_services: null,
+    start_date: new Date('2026-01-01T00:00:00Z'),
+    end_date: new Date('2027-12-31T23:59:59Z'),
+    usage_limit: 1000,
+    used_count: 0,
+    per_user_limit: 1,
+    is_active: 1,
+    description: 'Giảm 20% tối đa 500.000đ cho đơn đặt dịch vụ 1 lần',
+    created_at: new Date('2026-01-01T00:00:00Z')
+  },
+  {
+    id: 2,
+    code: 'CLEANOVA20',
+    discount_type: 'percentage',
+    discount_value: 20,
+    max_discount_amount: 500000,
+    min_order_amount: 0,
+    applicable_services: null,
+    start_date: new Date('2026-01-01T00:00:00Z'),
+    end_date: new Date('2027-12-31T23:59:59Z'),
+    usage_limit: 1000,
+    used_count: 0,
+    per_user_limit: 1,
+    is_active: 1,
+    description: 'Giảm 20% tối đa 500.000đ cho đơn đặt dịch vụ 1 lần',
+    created_at: new Date('2026-01-01T00:00:00Z')
+  },
+  {
+    id: 3,
+    code: 'CLEAN50K',
+    discount_type: 'fixed',
+    discount_value: 50000,
+    max_discount_amount: null,
+    min_order_amount: 200000,
+    applicable_services: null,
+    start_date: new Date('2026-01-01T00:00:00Z'),
+    end_date: new Date('2027-12-31T23:59:59Z'),
+    usage_limit: 500,
+    used_count: 0,
+    per_user_limit: 2,
+    is_active: 1,
+    description: 'Giảm 50.000đ trực tiếp cho đơn từ 200.000đ trở lên',
+    created_at: new Date('2026-01-01T00:00:00Z')
+  }
+];
+inMemoryData.voucher_usages = [];
 const demo = demoEnabled ? require('../services/demoStore')(inMemoryData) : null;
 
 // Khởi tạo và kiểm tra kết nối MySQL
@@ -1461,6 +1528,15 @@ function queryInMemory(sql, params = []) {
       return [{ count: totalPartners, total: totalPartners }];
     }
 
+    // Đếm số lượt sử dụng voucher của một người dùng
+    if (normalizedSql.includes('from voucher_usages')) {
+      const [voucherId, userId] = params;
+      const usageCount = (inMemoryData.voucher_usages || []).filter(
+        u => u.voucher_id === Number(voucherId) && u.user_id === Number(userId)
+      ).length;
+      return [{ count: usageCount, total: usageCount }];
+    }
+
     // Thống kê Dashboard tổng quan
     const totalUsers = inMemoryData.users.filter(u => u.role === 'customer' || u.role === 'user').length;
     const totalStaff = inMemoryData.users.filter(u => u.role === 'staff').length;
@@ -1911,8 +1987,12 @@ function queryInMemory(sql, params = []) {
       }
       if (normalizedSql.includes("quote_status = 'confirmed'")) {
         booking.total_price = parseFloat(params[0]);
-        booking.quote_notes = params[1] || '';
-        booking.staff_wage = parseFloat(params[2]);
+        booking.confirmed_price = parseFloat(params[1]);
+        booking.quote_notes = params[2] || '';
+        booking.staff_wage = parseFloat(params[3]);
+        booking.commission_rate = parseFloat(params[4]) || 0.20;
+        booking.platform_commission = parseFloat(params[5]) || 0;
+        booking.staff_net_wage = parseFloat(params[6]) || 0;
         booking.quote_status = 'confirmed';
         return { affectedRows: 1 };
       }
@@ -2149,6 +2229,122 @@ function queryInMemory(sql, params = []) {
       return { affectedRows: 1 };
     }
     return { affectedRows: 0 };
+  }
+
+  // 16. Cấu hình hệ thống (system_configs)
+  if (normalizedSql.startsWith('select') && normalizedSql.includes('from system_configs')) {
+    const configs = inMemoryData.system_configs || [];
+    if (normalizedSql.includes("config_key = 'staff_commission_rate'")) {
+      const cfg = configs.find(c => c.config_key === 'staff_commission_rate');
+      return cfg ? [{ ...cfg }] : [];
+    }
+    return configs.map(c => ({ ...c }));
+  }
+
+  if (normalizedSql.startsWith('insert into system_configs')) {
+    if (!inMemoryData.system_configs) inMemoryData.system_configs = [];
+    const [val, adminId] = params;
+    const existing = inMemoryData.system_configs.find(c => c.config_key === 'staff_commission_rate');
+    if (existing) {
+      existing.config_value = val;
+      existing.updated_by = adminId;
+      existing.updated_at = new Date();
+    } else {
+      inMemoryData.system_configs.push({
+        id: inMemoryData.system_configs.length + 1,
+        config_key: 'staff_commission_rate',
+        config_value: val,
+        description: 'Tỷ lệ chiết khấu CleanNova khấu trừ từ tiền công nhân viên',
+        updated_by: adminId,
+        updated_at: new Date()
+      });
+    }
+    return { affectedRows: 1 };
+  }
+
+  // 17. Vouchers & Voucher Usages (In-Memory)
+  if (normalizedSql.startsWith('select') && normalizedSql.includes('from voucher_usages')) {
+    const usages = inMemoryData.voucher_usages || [];
+    if (normalizedSql.includes('count(*)')) {
+      const [voucherId, userId] = params;
+      const count = usages.filter(u => u.voucher_id === Number(voucherId) && u.user_id === Number(userId)).length;
+      return [{ count }];
+    }
+    if (normalizedSql.includes('where booking_id = ? and voucher_id = ?')) {
+      const [bookingId, voucherId] = params;
+      return usages.filter(u => u.booking_id === Number(bookingId) && u.voucher_id === Number(voucherId));
+    }
+    return usages.map(u => ({ ...u }));
+  }
+
+  if (normalizedSql.startsWith('insert into voucher_usages')) {
+    if (!inMemoryData.voucher_usages) inMemoryData.voucher_usages = [];
+    const [voucherId, userId, bookingId, discountApplied] = params;
+    const id = inMemoryData.voucher_usages.length + 1;
+    inMemoryData.voucher_usages.push({
+      id,
+      voucher_id: Number(voucherId),
+      user_id: Number(userId),
+      booking_id: Number(bookingId),
+      discount_applied: Number(discountApplied),
+      used_at: new Date()
+    });
+    return { insertId: id, affectedRows: 1 };
+  }
+
+  if (normalizedSql.startsWith('delete from voucher_usages')) {
+    if (!inMemoryData.voucher_usages) return { affectedRows: 0 };
+    const [voucherId, bookingId] = params;
+    const beforeLen = inMemoryData.voucher_usages.length;
+    if (bookingId !== undefined) {
+      inMemoryData.voucher_usages = inMemoryData.voucher_usages.filter(
+        u => !(u.voucher_id === Number(voucherId) && u.booking_id === Number(bookingId))
+      );
+    } else {
+      inMemoryData.voucher_usages = inMemoryData.voucher_usages.filter(
+        u => u.voucher_id !== Number(voucherId)
+      );
+    }
+    return { affectedRows: beforeLen - inMemoryData.voucher_usages.length };
+  }
+
+  if (normalizedSql.startsWith('select') && normalizedSql.includes('from vouchers')) {
+    const list = inMemoryData.vouchers || [];
+    if (normalizedSql.includes('where code = ?')) {
+      const code = String(params[0] || '').trim().toUpperCase();
+      const v = list.find(item => item.code.toUpperCase() === code);
+      return v ? [{ ...v }] : [];
+    }
+    if (normalizedSql.includes('where id = ?')) {
+      const id = Number(params[0]);
+      const v = list.find(item => item.id === id);
+      return v ? [{ ...v }] : [];
+    }
+    if (normalizedSql.includes('where is_active = 1')) {
+      const now = new Date();
+      return list
+        .filter(v => v.is_active && new Date(v.start_date) <= now && new Date(v.end_date) >= now && (!v.usage_limit || v.used_count < v.usage_limit))
+        .map(v => ({ ...v }));
+    }
+    return list.map(v => ({ ...v })).reverse();
+  }
+
+  if (normalizedSql.startsWith('update vouchers')) {
+    const list = inMemoryData.vouchers || [];
+    if (normalizedSql.includes('used_count = used_count + 1')) {
+      const voucherId = Number(params[0]);
+      const v = list.find(item => item.id === voucherId && item.is_active);
+      if (!v || (v.usage_limit && v.used_count >= v.usage_limit)) return { affectedRows: 0 };
+      v.used_count = (v.used_count || 0) + 1;
+      return { affectedRows: 1 };
+    }
+    if (normalizedSql.includes('used_count = greatest(0, used_count - ?)')) {
+      const [dec, voucherId] = params;
+      const v = list.find(item => item.id === Number(voucherId));
+      if (!v) return { affectedRows: 0 };
+      v.used_count = Math.max(0, (v.used_count || 0) - Number(dec));
+      return { affectedRows: 1 };
+    }
   }
 
   return [];
