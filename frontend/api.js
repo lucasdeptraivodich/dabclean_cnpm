@@ -292,6 +292,10 @@
 
       async getAllReviews(limit = 10) {
         return await request(`/bookings/reviews/all?limit=${limit}`);
+      },
+
+      async getStaffCandidates() {
+        return await request('/bookings/staff-candidates');
       }
     },
 
@@ -664,6 +668,17 @@
         return await request(`/admin/staff/${staffId}/tasks`);
       },
 
+      async adjustStaffReputation(staffId, changeAmount, reason = 'admin_adjustment', bookingId = null) {
+        return await request(`/admin/staff/${staffId}/reputation`, {
+          method: 'POST',
+          body: JSON.stringify({ change_amount: changeAmount, reason, booking_id: bookingId })
+        });
+      },
+
+      async getStaffReputationLogs(staffId) {
+        return await request(`/admin/staff/${staffId}/reputation-logs`);
+      },
+
       // Quản lý hồ sơ đối tác & tuyển dụng
       async getPartners(params = {}) {
         const searchParams = new URLSearchParams();
@@ -714,6 +729,10 @@
     staff: {
       async getAvailableBookings() {
         return await request('/staff/available-bookings');
+      },
+
+      async getReputation() {
+        return await request('/staff/reputation');
       },
 
       async acceptBooking(id, payment_method = 'wallet', idempotency_key = null) {

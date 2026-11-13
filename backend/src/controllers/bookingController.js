@@ -10,6 +10,8 @@ const CommissionPaymentModel = require('../models/commissionPaymentModel');
 const pricingService = require('../services/pricingService');
 const { buildBookingVietQr } = require('../services/bookingVietQr');
 const db = require('../config/db');
+const reputationService = require('../services/reputationService');
+const socketService = require('../services/socketService');
 const { sanitizeInput, sanitizeReviewComment } = require('../utils/sanitize');
 
 // Bảng hệ số tính giá theo quy mô diện tích
@@ -34,6 +36,69 @@ const frequencyDiscounts = {
 };
 
 const bookingController = {
+  // 0. Lấy danh sách thợ khả dụng kèm thông tin phân hạng và đánh giá cho khách chọn (GET /api/bookings/staff-candidates)
+  async getStaffCandidates(req, res, next) {
+    try {
+      const staffList = await UserModel.getStaffList();
+      const allReviews = await BookingModel.getAllReviews(500);
+      const allBookings = await BookingModel.getAll();
+
+      // Chỉ lấy các thợ đang active và không bị suspended
+      const now = Date.now();
+      const activeStaff = staffList.filter(st => {
+        if (st.status !== 'active') return false;
+        if (st.suspended_until && new Date(st.suspended_until).getTime() > now) return false;
+        if (st.reputation_tier === 'suspended') return false;
+        return true;
+      });
+
+      const candidates = activeStaff.map(st => {
+        const staffBookings = allBookings.filter(b => b.staff_id === st.id);
+        const completedCount = staffBookings.filter(b => b.status === 'completed').length;
+        const staffRev = allReviews.filter(r => {
+          const b = allBookings.find(bk => bk.id === r.booking_id);
+          return b && b.staff_id === st.id;
+        });
+
+        let avgRating = 5.0;
+        if (staffRev.length > 0) {
+          const sum = staffRev.reduce((acc, r) => acc + Number(r.staff_rating || r.rating || 5), 0);
+          avgRating = Math.round((sum / staffRev.length) * 10) / 10;
+        }
+
+        const repScore = Number(st.reputation_score !== undefined && st.reputation_score !== null ? st.reputation_score : 100);
+        const repTier = st.reputation_tier || reputationService.calculateTier(repScore);
+
+        return {
+          id: st.id,
+          name: st.name,
+          phone: st.phone,
+          reputation_score: repScore,
+          reputation_tier: repTier,
+          is_gold: repTier === 'gold',
+          completed_tasks: completedCount,
+          avg_rating: avgRating,
+          review_count: staffRev.length
+        };
+      });
+
+      // Sắp xếp ưu tiên thợ Hạng Vàng lên trước
+      candidates.sort((a, b) => {
+        if (a.is_gold && !b.is_gold) return -1;
+        if (!a.is_gold && b.is_gold) return 1;
+        return b.reputation_score - a.reputation_score;
+      });
+
+      res.json({
+        success: true,
+        count: candidates.length,
+        data: candidates
+      });
+    } catch (err) {
+      next(err);
+    }
+  },
+
   // 1. Tạo đơn đặt dịch vụ mới (POST /api/bookings)
   async createBooking(req, res, next) {
     try {
@@ -78,7 +143,8 @@ const bookingController = {
         furniture_status = 'empty',
         worker_count = null,
         work_days = null,
-        construction_notes = null
+        construction_notes = null,
+        preferred_staff_id = null
       } = req.body;
       if (prebook && (preferredStaffId == null || payment_method === 'wallet')) {
         return res.status(400).json({ success: false, message: 'Chọn nhân viên và dùng tiền mặt hoặc chuyển khoản cho lịch đặt trước.' });
@@ -365,7 +431,9 @@ const bookingController = {
             quote_notes: null,
             construction_notes: construction_notes ? sanitizeInput(construction_notes) : null,
             addons: calculation.addons || null,
-            addon_amount: calculation.addonAmount || 0.00
+            addon_amount: calculation.addonAmount || 0.00,
+            staff_id: (preferred_staff_id && !isNaN(parseInt(preferred_staff_id, 10))) ? parseInt(preferred_staff_id, 10) : null,
+            status: (preferred_staff_id && !isNaN(parseInt(preferred_staff_id, 10))) ? 'assigned' : 'pending'
           });
           break;
         } catch (err) {
@@ -427,14 +495,8 @@ const bookingController = {
       // Phát thông báo thời gian thực cho Thợ, Admin và Khách hàng
       try {
         const socketService = require('../services/socketService');
-        // Báo cho thợ có việc mới
-        socketService.notifyRole('staff', {
-          type: 'new_booking',
-          title: '🔔 Có đơn dịch vụ mới trên sàn!',
-          message: `${newBooking.service_name || 'Dịch vụ'} tại ${newBooking.address}. Tiền công dự kiến: ${Number(newBooking.staff_net_wage || newBooking.staff_wage || 0).toLocaleString('vi-VN')} đ`,
-          data: newBooking,
-          sound: 'new_order'
-        });
+        // Báo cho thợ có việc mới: Phân hạng nổ đơn (Hạng Vàng nhận ngay trước 30s, Hạng Bạc sau 30s, Hạng Cam sau 60s)
+        socketService.dispatchNewBookingAlert(newBooking);
         // Báo cho Admin
         socketService.notifyRole('admin', {
           type: 'new_booking',
@@ -907,6 +969,68 @@ const bookingController = {
         staff_rating: parsedStaffRating,
         comment: cleanComment
       });
+
+            // Hook 3.2: Tự động tính điểm tín nhiệm cho nhân viên khi khách đánh giá
+      const effectiveStaffRating = parsedStaffRating !== null ? parsedStaffRating : parsedRating;
+      if (booking.staff_id) {
+        let deltaPoints = 0;
+        let reasonCode = '';
+
+        if (effectiveStaffRating === 5) {
+          deltaPoints = 2;
+          reasonCode = 'rating_5_star';
+        } else if (effectiveStaffRating === 4) {
+          deltaPoints = 1;
+          reasonCode = 'rating_4_star';
+        } else if (effectiveStaffRating === 3) {
+          deltaPoints = 0;
+          reasonCode = 'rating_3_star';
+        } else if (effectiveStaffRating <= 2) {
+          deltaPoints = -5;
+          reasonCode = 'rating_low_star';
+        }
+
+        try {
+          let repChange = null;
+          if (deltaPoints !== 0) {
+            repChange = await reputationService.recordChange({
+              staffId: booking.staff_id,
+              bookingId: id,
+              changeAmount: deltaPoints,
+              reason: reasonCode
+            });
+          }
+
+          // Bắn thông báo Socket.IO tới thợ
+          if (deltaPoints > 0) {
+            socketService.notifyUser(booking.staff_id, {
+              type: 'credit_score_update',
+              title: '⭐ Đánh giá mới từ khách hàng',
+              message: `Bạn nhận được đánh giá ${effectiveStaffRating} sao (+${deltaPoints} điểm tín nhiệm)!`,
+              data: { bookingId: id, rating: effectiveStaffRating, delta: deltaPoints, newScore: repChange ? repChange.score_after : undefined }
+            });
+          } else if (deltaPoints < 0) {
+            socketService.notifyUser(booking.staff_id, {
+              type: 'credit_score_update',
+              title: '⚠️ Đánh giá chất lượng thấp',
+              message: `Khách hàng đánh giá ${effectiveStaffRating} sao (${deltaPoints} điểm tín nhiệm). Vui lòng lưu ý nâng cao chất lượng dịch vụ.`,
+              data: { bookingId: id, rating: effectiveStaffRating, delta: deltaPoints, newScore: repChange ? repChange.score_after : undefined }
+            });
+          }
+
+          // Khách đánh giá 1-2 sao: Tự động mở cờ yêu cầu Admin rà soát
+          if (effectiveStaffRating <= 2) {
+            socketService.notifyRole('admin', {
+              type: 'low_rating_alert',
+              title: `🚩 Cờ rà soát: Đánh giá ${effectiveStaffRating} sao đơn #${booking.booking_code}`,
+              message: `Đơn #${booking.booking_code} của nhân viên #${booking.staff_id} nhận đánh giá thấp (${effectiveStaffRating} sao). Nhận xét: "${cleanComment || 'Không có nhận xét'}". Điểm tín nhiệm bị trừ 5 điểm.`,
+              data: { bookingId: id, staffId: booking.staff_id, rating: effectiveStaffRating, comment: cleanComment }
+            });
+          }
+        } catch (repErr) {
+          console.error('[Reputation Hook Error]', repErr.message);
+        }
+      }
 
       res.status(201).json({
         success: true,

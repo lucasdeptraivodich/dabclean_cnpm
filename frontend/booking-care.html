@@ -420,6 +420,20 @@
               </select>
             </div>
           </div>
+          <!-- 8. CHỌN NHÂN VIÊN ƯU TIÊN / THỢ QUEN -->
+          <div class="care-field-group">
+            <div style="display: flex; justify-content: space-between; align-items: baseline; margin-bottom: 6px;">
+              <label class="care-field-label" for="care-preferred-staff" style="margin-bottom: 0;">
+                ⭐ Chọn chuyên viên ưu tiên / Thợ quen (Tùy chọn)
+              </label>
+              <span style="font-size: 11px; color: var(--color-text-muted);">Ưu tiên thợ kinh nghiệm & chu đáo</span>
+            </div>
+            <select id="care-preferred-staff" class="care-field-select" style="font-size: 13px;">
+              <option value="">-- Hệ thống tự động điều phối chuyên viên nhanh nhất (Mặc định) --</option>
+            </select>
+            <div id="care-preferred-staff-badge" style="margin-top: 8px; display: none;"></div>
+          </div>
+
         </form>
       </div>
 
@@ -488,6 +502,67 @@
   <script>
     // Xử lý logic đặt lịch chăm sóc & tính giá trực tiếp từ backend
     document.addEventListener('DOMContentLoaded', () => {
+      // Nạp danh sách thợ khả dụng cho dịch vụ chăm sóc
+      async function loadCareStaffCandidates() {
+        try {
+          const staffSelect = document.getElementById('care-preferred-staff');
+          const badgeBox = document.getElementById('care-preferred-staff-badge');
+          if (!staffSelect) return;
+
+          const res = await (window.DabCleanAPI ? DabCleanAPI.bookings.getStaffCandidates() : fetch('/api/bookings/staff-candidates').then(r => r.json()));
+          const candidates = (res && res.data) || [];
+
+          candidates.forEach(cand => {
+            const opt = document.createElement('option');
+            opt.value = cand.id;
+            const goldTag = cand.is_gold ? ' 🥇 [Hạng Vàng]' : '';
+            opt.textContent = `${cand.name}${goldTag} - ${cand.avg_rating}⭐ (${cand.completed_tasks} ca)`;
+            opt.dataset.isGold = cand.is_gold ? 'true' : 'false';
+            opt.dataset.rating = cand.avg_rating;
+            opt.dataset.tasks = cand.completed_tasks;
+            opt.dataset.name = cand.name;
+            staffSelect.appendChild(opt);
+          });
+
+          staffSelect.addEventListener('change', function () {
+            const selectedOpt = staffSelect.options[staffSelect.selectedIndex];
+            if (!selectedOpt || !selectedOpt.value) {
+              badgeBox.style.display = 'none';
+              badgeBox.innerHTML = '';
+              return;
+            }
+
+            const isGold = selectedOpt.dataset.isGold === 'true';
+            const rating = selectedOpt.dataset.rating || '5.0';
+            const tasks = selectedOpt.dataset.tasks || '0';
+            const name = selectedOpt.dataset.name || '';
+
+            badgeBox.style.display = 'block';
+            if (isGold) {
+              badgeBox.innerHTML = `
+                <div style="background: linear-gradient(135deg, #FEF9C3 0%, #FEF08A 100%); border: 1px solid #FACC15; padding: 10px 14px; border-radius: 10px; display: flex; align-items: center; gap: 10px; color: #854D0E;">
+                  <span style="font-size: 22px;">🥇</span>
+                  <div>
+                    <div style="font-weight: 800; font-size: 13px;">Đối tác Hạng Vàng - Đánh giá ${rating}⭐ (${tasks} ca)</div>
+                    <div style="font-size: 11px; opacity: 0.9;">${name} là chuyên viên chăm sóc ưu tú, kinh nghiệm và tận tâm nhất.</div>
+                  </div>
+                </div>
+              `;
+            } else {
+              badgeBox.innerHTML = `
+                <div style="background: #F1F5F9; border: 1px solid #CBD5E1; padding: 8px 12px; border-radius: 10px; font-size: 12px; color: #334155;">
+                  👤 <strong>${name}</strong> · Đánh giá: <strong>${rating}⭐</strong> · Đã hoàn thành <strong>${tasks} ca</strong>
+                </div>
+              `;
+            }
+          });
+        } catch (e) {
+          console.warn('Lỗi tải danh sách thợ chăm sóc:', e);
+        }
+      }
+
+      loadCareStaffCandidates();
+
       // 1. Set min date là ngày hôm nay
       const dateInput = document.getElementById('care-date');
       const today = new Date().toISOString().split('T')[0];
@@ -673,7 +748,7 @@
               phone: phone,
               discount_code: promoCode || null,
               payment_method: paymentMethod,
-              preferred_staff_id: preferredStaff,
+              preferred_staff_id: preferredStaff || document.getElementById('care-preferred-staff')?.value || null,
               prebook: prebook === true
             })
           });

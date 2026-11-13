@@ -12,6 +12,7 @@ const { uploadDirectory } = require('../middleware/jobPhotoUpload');
 const { getRequiredAreas, getPhotoProgress } = require('../utils/jobChecklist');
 const { sanitizeInput } = require('../utils/sanitize');
 const db = require('../config/db');
+const reputationService = require('../services/reputationService');
 
 async function getAssignedBooking(taskId, req, res) {
   const booking = await BookingModel.getById(taskId);
@@ -57,14 +58,66 @@ const staffController = {
       return res.json({ success: true, data: { id: booking.id, address: booking.address.trim() } });
     } catch (err) { next(err); }
   },
-  // 0a. Lấy danh sách việc làm khả dụng để nhận ca (GET /api/staff/available-bookings)
+    // 0a. Lấy danh sách việc làm khả dụng để nhận ca (GET /api/staff/available-bookings)
   async getAvailableBookings(req, res, next) {
     try {
-      const bookings = await CommissionPaymentModel.getAvailableBookingsForStaff(req.user.id);
+      const staffRep = await reputationService.getStaffReputation(req.user.id);
+      const isSuspended = staffRep && staffRep.is_suspended;
+
+      if (isSuspended) {
+        let suspendMsg = 'Tài khoản của bạn đang bị tạm khóa nhận việc do điểm tín nhiệm dưới 60.';
+        if (staffRep.suspended_until) {
+          const untilDate = new Date(staffRep.suspended_until);
+          suspendMsg = `Tài khoản của bạn đang bị tạm khóa nhận việc đến ${untilDate.toLocaleString('vi-VN')}. Vui lòng liên hệ Admin để được hỗ trợ.`;
+        }
+        return res.json({
+          success: true,
+          is_suspended: true,
+          suspended_until: staffRep ? staffRep.suspended_until : null,
+          message: suspendMsg,
+          count: 0,
+          data: []
+        });
+      }
+
+      let bookings = await CommissionPaymentModel.getAvailableBookingsForStaff(req.user.id);
+      const now = Date.now();
+
+      // Nếu điểm < 80 (Hạng Cam: 60-79): Ẩn các đơn có created_at trong vòng 60 giây gần nhất
+      // Đồng thời không được nhận đơn đặt lịch trước (Reserved Bookings: đơn đã assigned cho staff khác)
+      if (staffRep && staffRep.reputation_score < 80) {
+        bookings = bookings.filter(b => {
+          // Không nhận đơn reserved
+          if (b.status === 'assigned' && b.staff_id !== req.user.id) return false;
+          const createdAtTime = b.created_at ? new Date(b.created_at).getTime() : 0;
+          const ageSeconds = (now - createdAtTime) / 1000;
+          return ageSeconds >= 60;
+        });
+      }
+
       res.json({
         success: true,
+        is_suspended: false,
+        reputation: staffRep,
         count: bookings.length,
         data: bookings
+      });
+    } catch (err) {
+      next(err);
+    }
+  },
+
+  // 0a-2. Lấy thông tin điểm tín nhiệm & lịch sử uy tín của bản thân thợ (GET /api/staff/reputation)
+  async getMyReputation(req, res, next) {
+    try {
+      const rep = await reputationService.getStaffReputation(req.user.id);
+      const logs = await reputationService.getReputationLogs(req.user.id, 50);
+      res.json({
+        success: true,
+        data: {
+          reputation: rep,
+          logs
+        }
       });
     } catch (err) {
       next(err);
@@ -556,6 +609,44 @@ const staffController = {
       }
 
       if (status === 'cancelled') {
+        // Hook 3.2: Tính thời gian hủy ca và xử phạt điểm uy tín
+        try {
+          const bookingDateStr = booking.booking_date instanceof Date
+            ? booking.booking_date.toISOString().slice(0, 10)
+            : String(booking.booking_date).slice(0, 10);
+          const bookingTimeStr = String(booking.booking_time || '00:00:00').slice(0, 8);
+          const scheduledTime = new Date(`${bookingDateStr}T${bookingTimeStr}`).getTime();
+          const currentTime = Date.now();
+          const diffHours = (scheduledTime - currentTime) / (1000 * 60 * 60);
+
+          let penaltyPoints = -5;
+          let cancelReasonCode = 'advance_cancellation';
+
+          if (diffHours < 1) {
+            penaltyPoints = -20; // Hủy cực gấp (< 1h)
+            cancelReasonCode = 'urgent_cancellation';
+          } else if (diffHours <= 4) {
+            penaltyPoints = -10; // Hủy sát giờ (1 - 4h)
+            cancelReasonCode = 'late_cancellation';
+          } else {
+            penaltyPoints = -5;  // Hủy báo trước > 4h
+            cancelReasonCode = 'advance_cancellation';
+          }
+
+          // Trừ điểm tín nhiệm và tự động set suspended_until nếu < 60
+          await reputationService.recordChange({
+            staffId: req.user.id,
+            bookingId: taskId,
+            changeAmount: penaltyPoints,
+            reason: cancelReasonCode
+          });
+
+          // Reset chuỗi ca hoàn thành liên tiếp (Streak)
+          await reputationService.resetStreak(req.user.id);
+        } catch (repErr) {
+          console.error('[Reputation Cancellation Penalty Error]', repErr.message);
+        }
+
         if (booking.discount_code) {
           try {
             const VoucherModel = require('../models/voucherModel');
@@ -665,6 +756,22 @@ const staffController = {
             success: false,
             message: `Quyết toán thù lao thất bại: ${settleErr.message || 'Lỗi hệ thống ví'}. Trạng thái công việc chưa được cập nhật.`
           });
+        }
+
+        // Hook 1: Streak Bonus (10 ca liên tiếp không hủy -> +5 điểm)
+        try {
+          const streakRes = await reputationService.handleTaskCompletionStreak(req.user.id, taskId);
+          if (streakRes && streakRes.bonus_applied) {
+            const socketService = require('../services/socketService');
+            socketService.notifyUser(req.user.id, {
+              type: 'streak_bonus',
+              title: '🏆 Thưởng Chuỗi Chuyên Cần!',
+              message: 'Chúc mừng bạn đã hoàn thành liên tiếp 10 ca không hủy (+5 điểm tín nhiệm)!',
+              data: { streak: 10, bonus: 5 }
+            });
+          }
+        } catch (streakErr) {
+          console.error('[Streak Bonus Error]', streakErr.message);
         }
 
         if (!settlementResult || !settlementResult.success) {

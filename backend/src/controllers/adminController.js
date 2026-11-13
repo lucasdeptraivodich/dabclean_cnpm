@@ -3,6 +3,7 @@
 // ============================================================
 const bcrypt = require('bcryptjs');
 const db = require('../config/db');
+const reputationService = require('../services/reputationService');
 const BookingModel = require('../models/bookingModel');
 const ServiceModel = require('../models/serviceModel');
 const UserModel = require('../models/userModel');
@@ -993,6 +994,98 @@ const adminController = {
         },
         count: tasks.length,
         data: tasks
+      });
+    } catch (err) {
+      next(err);
+    }
+  },
+
+  // 15b. Điều chỉnh điểm tín nhiệm nhân viên thủ công (POST /api/admin/staff/:id/reputation)
+  async adjustStaffReputation(req, res, next) {
+    try {
+      const staffId = parseInt(req.params.id, 10);
+      const staff = await UserModel.findById(staffId);
+      if (!staff || staff.role !== 'staff') {
+        return res.status(404).json({ success: false, message: 'Không tìm thấy nhân viên.' });
+      }
+
+      const { change_amount, reason, note, booking_id } = req.body;
+      const parsedAmount = parseInt(change_amount, 10);
+      if (isNaN(parsedAmount) || parsedAmount === 0) {
+        return res.status(400).json({ success: false, message: 'Số điểm thay đổi phải là một số nguyên khác 0.' });
+      }
+
+      if (!reason || !reason.trim()) {
+        return res.status(400).json({ success: false, message: 'Vui lòng cung cấp lý do điều chỉnh điểm.' });
+      }
+
+      const safeReason = sanitizeInput(reason);
+      const safeNote = note ? sanitizeInput(note) : null;
+      const fullReasonText = safeNote ? `${safeReason}: ${safeNote}` : safeReason;
+
+      const result = await reputationService.recordChange({
+        staff_id: staffId,
+        booking_id: booking_id ? parseInt(booking_id, 10) : null,
+        change_amount: parsedAmount,
+        reason: 'admin_adjustment',
+        note: fullReasonText
+      });
+
+      await UserModel.logAudit(
+        req.user.id,
+        'ADJUST_STAFF_REPUTATION',
+        staffId,
+        'user',
+        `Admin điều chỉnh điểm tín nhiệm thợ #${staffId} (${staff.name}): ${parsedAmount > 0 ? '+' : ''}${parsedAmount} điểm. Lý do: ${fullReasonText}. Điểm mới: ${result.balance_after} (${result.tier})`
+      );
+
+      try {
+        const socketService = require('../services/socketService');
+        socketService.sendToUser(staffId, 'reputation_updated', {
+          score: result.balance_after,
+          tier: result.tier,
+          change: parsedAmount,
+          reason: fullReasonText,
+          message: `Admin đã ${parsedAmount > 0 ? 'cộng' : 'trừ'} ${Math.abs(parsedAmount)} điểm tín nhiệm của bạn. Lý do: ${fullReasonText}`
+        });
+      } catch (sockErr) {
+        // socket ignore
+      }
+
+      res.json({
+        success: true,
+        message: `Đã điều chỉnh thành công ${parsedAmount > 0 ? '+' : ''}${parsedAmount} điểm cho nhân viên ${staff.name}.`,
+        data: result
+      });
+    } catch (err) {
+      next(err);
+    }
+  },
+
+  // 15c. Xem lịch sử biến động điểm tín nhiệm của nhân viên (GET /api/admin/staff/:id/reputation-logs)
+  async getStaffReputationLogs(req, res, next) {
+    try {
+      const staffId = parseInt(req.params.id, 10);
+      const staff = await UserModel.findById(staffId);
+      if (!staff || staff.role !== 'staff') {
+        return res.status(404).json({ success: false, message: 'Không tìm thấy nhân viên.' });
+      }
+
+      const limit = parseInt(req.query.limit, 10) || 50;
+      const logs = await reputationService.getReputationLogs(staffId, limit);
+
+      res.json({
+        success: true,
+        staff: {
+          id: staff.id,
+          name: staff.name,
+          email: staff.email,
+          reputation_score: staff.reputation_score !== undefined ? staff.reputation_score : 100,
+          reputation_tier: staff.reputation_tier || 'silver',
+          suspended_until: staff.suspended_until || null
+        },
+        count: logs.length,
+        data: logs
       });
     } catch (err) {
       next(err);

@@ -13,6 +13,7 @@ router.use(verifyToken, staffRequired);
 
 // 1. Quản lý công việc được giao & nhận ca
 router.get('/available-bookings', staffController.getAvailableBookings);
+router.get('/reputation', staffController.getMyReputation);
 router.post('/tasks/:id/accept', staffController.acceptBooking);
 router.get('/photos/:filename', staffController.getTaskPhoto);
 router.get('/tasks', staffController.getMyTasks);
@@ -38,5 +39,15 @@ router.get('/profile', staffController.getProfile);
 router.patch('/profile', staffController.updateProfile);
 router.put('/profile', staffController.updateProfile);
 router.put('/change-password', staffController.changePassword);
+
+
+// Cấp phát vật tư & Lịch sử nhận dụng cụ của nhân viên
+const inventoryService = require('../services/inventoryService');
+router.get('/my-equipment', async (req, res, next) => {
+  try {
+    const allocations = await inventoryService.getAllocations({ staffId: req.user.id });
+    res.json({ success: true, count: allocations.length, data: allocations });
+  } catch (e) { next(e); }
+});
 
 module.exports = router;

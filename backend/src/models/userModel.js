@@ -8,13 +8,13 @@ const UserModel = {
   async findByEmail(email) {
     const cleanEmail = email.trim().toLowerCase();
     let rows = await db.query(
-      'SELECT id, name, email, password, phone, address, role, status, lock_reason, created_at FROM users WHERE email = ? LIMIT 1',
+      'SELECT id, name, email, password, phone, address, role, status, lock_reason, reputation_score, reputation_tier, suspended_until, consecutive_completed_tasks, created_at FROM users WHERE email = ? LIMIT 1',
       [cleanEmail]
     );
     if (!rows[0] && cleanEmail.endsWith('@dabclean.vn')) {
       const altEmail = cleanEmail.replace(/@dabclean\.vn$/, '@cleanova.vn');
       rows = await db.query(
-        'SELECT id, name, email, password, phone, address, role, status, lock_reason, created_at FROM users WHERE email = ? LIMIT 1',
+        'SELECT id, name, email, password, phone, address, role, status, lock_reason, reputation_score, reputation_tier, suspended_until, consecutive_completed_tasks, created_at FROM users WHERE email = ? LIMIT 1',
         [altEmail]
       );
     }
@@ -24,7 +24,7 @@ const UserModel = {
   // Tìm người dùng theo ID (không trả về hash password)
   async findById(id) {
     const rows = await db.query(
-      'SELECT id, name, email, phone, address, role, status, lock_reason, created_at FROM users WHERE id = ? LIMIT 1',
+      'SELECT id, name, email, phone, address, role, status, lock_reason, reputation_score, reputation_tier, suspended_until, consecutive_completed_tasks, created_at FROM users WHERE id = ? LIMIT 1',
       [id]
     );
     return rows[0] || null;
@@ -33,7 +33,7 @@ const UserModel = {
   // Tìm người dùng theo ID kèm mật khẩu (Dùng riêng cho xác thực đổi mật khẩu)
   async findByIdWithPassword(id) {
     const rows = await db.query(
-      'SELECT id, name, email, password, phone, address, role, status, lock_reason, created_at FROM users WHERE id = ? LIMIT 1',
+      'SELECT id, name, email, password, phone, address, role, status, lock_reason, reputation_score, reputation_tier, suspended_until, consecutive_completed_tasks, created_at FROM users WHERE id = ? LIMIT 1',
       [id]
     );
     return rows[0] || null;
@@ -126,7 +126,7 @@ const UserModel = {
   // Lấy toàn bộ danh sách người dùng cho Admin
   async getAll() {
     const rows = await db.query(
-      'SELECT id, name, email, phone, address, role, status, lock_reason, created_at FROM users ORDER BY id DESC'
+      'SELECT id, name, email, phone, address, role, status, lock_reason, reputation_score, reputation_tier, suspended_until, consecutive_completed_tasks, created_at FROM users ORDER BY id DESC'
     );
     return rows;
   },
@@ -134,7 +134,7 @@ const UserModel = {
   // Lấy danh sách nhân viên DabClean (Staff)
   async getStaffList() {
     const rows = await db.query(
-      "SELECT id, name, email, phone, address, role, status, lock_reason, created_at FROM users WHERE role = 'staff' ORDER BY id DESC"
+      "SELECT id, name, email, phone, address, role, status, lock_reason, reputation_score, reputation_tier, suspended_until, consecutive_completed_tasks, created_at FROM users WHERE role = 'staff' ORDER BY id DESC"
     );
     return rows;
   },

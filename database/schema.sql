@@ -13,6 +13,7 @@ USE cleanova_db;
 -- 2. Xóa bảng cũ nếu tồn tại (theo thứ tự khóa ngoại)
 DROP TABLE IF EXISTS voucher_usages;
 DROP TABLE IF EXISTS vouchers;
+DROP TABLE IF EXISTS reputation_logs;
 DROP TABLE IF EXISTS wallet_ledger_entries;
 DROP TABLE IF EXISTS wallet_transactions;
 DROP TABLE IF EXISTS wallets;
@@ -41,6 +42,10 @@ CREATE TABLE users (
   status ENUM('active', 'inactive') DEFAULT 'active' COMMENT 'Trạng thái tài khoản: active (hoạt động), inactive (bị vô hiệu hóa)',
   lock_reason VARCHAR(255) DEFAULT NULL COMMENT 'Lý do khóa tài khoản nếu status = inactive',
   avatar_url VARCHAR(255) DEFAULT NULL COMMENT 'Đường dẫn ảnh đại diện',
+  reputation_score INT NOT NULL DEFAULT 100 COMMENT 'Điểm tín nhiệm hiện tại của nhân viên',
+  reputation_tier ENUM('gold', 'silver', 'bronze', 'suspended') NOT NULL DEFAULT 'silver' COMMENT 'Cấp bậc thợ: gold (Vàng), silver (Bạc), bronze (Cam), suspended (Đỏ)',
+  suspended_until DATETIME DEFAULT NULL COMMENT 'Thời hạn phạt khóa nhận việc',
+  consecutive_completed_tasks INT NOT NULL DEFAULT 0 COMMENT 'Đếm chuỗi ca hoàn thành liên tiếp',
   created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP COMMENT 'Thời điểm đăng ký',
   updated_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP COMMENT 'Thời điểm cập nhật'
 ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci;
@@ -463,4 +468,73 @@ CREATE TABLE system_configs (
   CONSTRAINT fk_sys_configs_admin FOREIGN KEY (updated_by) REFERENCES users(id) ON DELETE SET NULL
 ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci;
 
+-- ------------------------------------------------------------
+-- BẢNG 15: reputation_logs (Lịch sử biến động điểm tín nhiệm thợ)
+-- ------------------------------------------------------------
+CREATE TABLE reputation_logs (
+  id BIGINT AUTO_INCREMENT PRIMARY KEY,
+  staff_id INT NOT NULL COMMENT 'Nhân viên nhận biến động điểm',
+  booking_id INT DEFAULT NULL COMMENT 'Đơn đặt lịch liên quan',
+  change_amount INT NOT NULL COMMENT 'Số điểm thay đổi (+2, -5, -10, -20, +5...)',
+  balance_after INT NOT NULL COMMENT 'Số điểm sau biến động',
+  reason VARCHAR(100) NOT NULL COMMENT 'Mã lý do: rating_5_star, late_cancellation, streak_bonus, admin_adjustment...',
+  created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+  INDEX idx_rep_staff (staff_id),
+  INDEX idx_rep_booking (booking_id),
+  CONSTRAINT fk_rep_staff FOREIGN KEY (staff_id) REFERENCES users(id) ON DELETE CASCADE,
+  CONSTRAINT fk_rep_booking FOREIGN KEY (booking_id) REFERENCES bookings(id) ON DELETE SET NULL
+) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci;
 
+
+-- ============================================================
+-- PHÂN HỆ QUẢN LÝ SỰ CỐ, KHIẾU NẠI & ĐỀN BÙ TÀI SẢN (DISPUTE & DAMAGE)
+-- ============================================================
+CREATE TABLE IF NOT EXISTS booking_disputes (
+  id INT AUTO_INCREMENT PRIMARY KEY,
+  booking_id INT NOT NULL,
+  customer_id INT NOT NULL,
+  staff_id INT NOT NULL,
+  dispute_type ENUM('damage_property', 'loss_property', 'poor_cleaning', 'attitude', 'other') NOT NULL,
+  title VARCHAR(255) NOT NULL,
+  description TEXT NOT NULL,
+  evidence_photos JSON NULL COMMENT 'Mảng URL ảnh/video bằng chứng',
+  claimed_amount DECIMAL(12, 2) DEFAULT 0.00,
+  approved_amount DECIMAL(12, 2) DEFAULT 0.00,
+  compensation_source ENUM('staff_wallet', 'platform_insurance', 'split', 'rejected') DEFAULT 'staff_wallet',
+  status ENUM('pending', 'investigating', 'resolved', 'rejected') DEFAULT 'pending',
+  admin_notes TEXT NULL,
+  resolved_by INT NULL,
+  created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+  resolved_at DATETIME NULL,
+  FOREIGN KEY (booking_id) REFERENCES bookings(id),
+  FOREIGN KEY (customer_id) REFERENCES users(id),
+  FOREIGN KEY (staff_id) REFERENCES users(id)
+) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci;
+
+-- ============================================================
+-- PHÂN HỆ QUẢN LÝ KHO VẬT TƯ & HÓA CHẤT DỌN DẸP (CLEANING INVENTORY)
+-- ============================================================
+CREATE TABLE IF NOT EXISTS equipment_inventory (
+  id INT AUTO_INCREMENT PRIMARY KEY,
+  item_code VARCHAR(50) UNIQUE NOT NULL,
+  item_name VARCHAR(150) NOT NULL,
+  category ENUM('uniform', 'tool', 'chemical', 'protective_gear') NOT NULL,
+  unit VARCHAR(20) NOT NULL,
+  unit_price DECIMAL(10, 2) DEFAULT 0.00,
+  stock_quantity INT DEFAULT 0,
+  is_active TINYINT(1) DEFAULT 1,
+  created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
+) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci;
+
+CREATE TABLE IF NOT EXISTS staff_equipment_allocations (
+  id INT AUTO_INCREMENT PRIMARY KEY,
+  staff_id INT NOT NULL,
+  item_id INT NOT NULL,
+  quantity INT DEFAULT 1,
+  allocated_date DATE NOT NULL,
+  allocation_type ENUM('free', 'deposit', 'sold') DEFAULT 'free',
+  status ENUM('holding', 'returned', 'damaged', 'lost') DEFAULT 'holding',
+  notes VARCHAR(255) NULL,
+  FOREIGN KEY (staff_id) REFERENCES users(id),
+  FOREIGN KEY (item_id) REFERENCES equipment_inventory(id)
+) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci;

@@ -3,6 +3,7 @@
 // ============================================================
 const crypto = require('crypto');
 const db = require('../config/db');
+const reputationService = require('../services/reputationService');
 const WalletModel = require('./walletModel');
 const BookingModel = require('./bookingModel');
 const UserModel = require('./userModel');
@@ -52,6 +53,41 @@ const CommissionPaymentModel = {
       }
       const booking = bookings[0];
 
+      // 2. Kiểm tra uy tín nhân viên nhận đơn (Hạng Đỏ & Hạng Cam)
+      const [staffCheckRows] = await connection.query(
+        'SELECT reputation_score, reputation_tier, suspended_until FROM users WHERE id = ? LIMIT 1',
+        [staffId]
+      );
+      if (staffCheckRows && staffCheckRows[0]) {
+        const sInfo = staffCheckRows[0];
+        const sScore = Number(sInfo.reputation_score !== undefined && sInfo.reputation_score !== null ? sInfo.reputation_score : 100);
+        const isSuspended = (sInfo.suspended_until && new Date(sInfo.suspended_until).getTime() > Date.now()) || sScore < 60 || sInfo.reputation_tier === 'suspended';
+
+        if (isSuspended) {
+          const error = new Error('Tài khoản của bạn đang bị tạm khóa nhận việc do điểm tín nhiệm dưới 60.');
+          error.statusCode = 403;
+          throw error;
+        }
+
+        // Hạng Cam: Nếu đơn mới tạo chưa đủ 60 giây, chặn không cho nhận
+        if (sScore < 80) {
+          const createdAtTime = booking.created_at ? new Date(booking.created_at).getTime() : 0;
+          const ageSeconds = (Date.now() - createdAtTime) / 1000;
+          if (ageSeconds < 60) {
+            const error = new Error('Nhân viên Hạng Cam (dưới 80 điểm) phải chờ 60 giây sau khi đơn phát sinh mới được nhận việc.');
+            error.statusCode = 403;
+            throw error;
+          }
+
+          // Hạng Cam: Không được nhận đơn đặt lịch trước (Reserved Bookings) nếu được gán cho người khác
+          if (booking.status === 'assigned' && booking.staff_id !== staffId) {
+            const error = new Error('Nhân viên Hạng Cam không được nhận các đơn đặt lịch trước.');
+            error.statusCode = 403;
+            throw error;
+          }
+        }
+      }
+
       // 2. Kiểm tra tính khả dụng của đơn
       if (booking.status === 'cancelled') {
         const error = new Error('Thao tác bị từ chối: Đơn đặt lịch này đã bị hủy.');
@@ -96,9 +132,17 @@ const CommissionPaymentModel = {
       }
 
       // 3. Tính toán khoản chiết khấu từ nguồn dữ liệu backend đáng tin cậy
+      // Yêu cầu 3.2: Nếu điểm >= 120 (Hạng Vàng) -> Tự động tính tỷ lệ hoa hồng commission_rate = 0.18 (18%)
+      const [staffRows] = await connection.query(
+        'SELECT reputation_score, reputation_tier FROM users WHERE id = ? LIMIT 1',
+        [staffId]
+      );
+      const staffScore = staffRows && staffRows[0] ? Number(staffRows[0].reputation_score || 100) : 100;
+      const isGoldTier = staffScore >= 120;
+
       const totalPrice = Math.max(0, Math.round(parseFloat(booking.total_price) || 0));
       const grossWage = Math.max(0, Math.round(parseFloat(booking.staff_wage) || (totalPrice * 0.8) || 0));
-      const commissionRate = booking.commission_rate ? parseFloat(booking.commission_rate) : 0.20;
+      const commissionRate = isGoldTier ? 0.1800 : (booking.commission_rate ? parseFloat(booking.commission_rate) : 0.2000);
       let commissionAmount = Math.max(
         0,
         Math.round(parseFloat(booking.platform_commission) || (grossWage * commissionRate) || (totalPrice * 0.20))
@@ -284,17 +328,21 @@ const CommissionPaymentModel = {
       const paymentId = paymentInsert.insertId;
 
       // 4.5. Xác nhận phân công và chuyển trạng thái đơn hàng sang 'confirmed'
+      const netWage = Math.max(0, grossWage - commissionAmount);
       await connection.query(
         `UPDATE bookings 
          SET status = 'confirmed',
              staff_id = ?,
              assigned_at = COALESCE(assigned_at, NOW()),
+             commission_rate = ?,
+             platform_commission = ?,
+             staff_net_wage = ?,
              commission_status = 'paid',
              commission_payment_id = ?,
              commission_paid_at = NOW(),
              commission_payment_method = 'wallet'
          WHERE id = ?`,
-        [staffId, paymentId, booking.id]
+        [staffId, commissionRate, commissionAmount, netWage, paymentId, booking.id]
       );
 
       // 4.6. Tạo thông báo cho khách hàng
@@ -968,7 +1016,7 @@ const CommissionPaymentModel = {
    */
   async getAvailableBookingsForStaff(staffId) {
     return await db.query(
-      `SELECT b.id, b.booking_code, b.booking_date, b.booking_time, b.address, b.area_size,
+      `SELECT b.id, b.booking_code, b.booking_date, b.booking_time, b.address, b.area_size, b.created_at,
               b.total_price, b.staff_wage, b.commission_rate, b.platform_commission, b.staff_net_wage,
               b.status, b.staff_id, b.commission_status, b.payment_method,
               s.name AS service_name, s.icon AS service_icon, s.duration_estimate

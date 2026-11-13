@@ -197,7 +197,106 @@ function notifyDemoFeaturesChanged(userIds) {
   if (rooms.length) io?.to(rooms).emit('demo_features_changed');
 }
 
+
+/**
+ * Phân luồng nổ đơn mới (Dispatch New Booking Alert):
+ * - Hạng Vàng: Nhận thông báo NGAY LẬP TỨC.
+ * - Hạng Bạc & Khác: Nhận thông báo sau 30 GIÂY.
+ * - Hạng Cam (60-79đ): Không nhận thông báo tức thời, phải sau 60 GIÂY nếu chưa ai nhận.
+ * - Hạng Đỏ (<60đ): Chặn không gửi thông báo việc mới.
+ * @param {object} booking
+ */
+async function dispatchNewBookingAlert(booking) {
+  if (!io || !booking) return;
+
+  try {
+    const UserModel = require('../models/userModel');
+    const staffList = await UserModel.getStaffList();
+    const now = Date.now();
+
+    const activeStaff = staffList.filter(st => {
+      if (st.status !== 'active') return false;
+      if (st.suspended_until && new Date(st.suspended_until).getTime() > now) return false;
+      if (st.reputation_tier === 'suspended' || Number(st.reputation_score || 100) < 60) return false;
+      return true;
+    });
+
+    const goldStaff = [];
+    const standardStaff = []; // Hạng Bạc
+    const warningStaff = [];  // Hạng Cam
+
+    activeStaff.forEach(st => {
+      const score = Number(st.reputation_score !== undefined && st.reputation_score !== null ? st.reputation_score : 100);
+      if (score >= 120 || st.reputation_tier === 'gold') {
+        goldStaff.push(st.id);
+      } else if (score >= 80 || st.reputation_tier === 'silver') {
+        standardStaff.push(st.id);
+      } else if (score >= 60 || st.reputation_tier === 'bronze') {
+        warningStaff.push(st.id);
+      }
+    });
+
+    const payload = {
+      id: `notif_order_${booking.id}_${Date.now()}`,
+      type: 'new_booking',
+      title: '🔔 Có đơn dịch vụ mới trên sàn!',
+      message: `${booking.service_name || 'Dịch vụ'} tại ${booking.address}. Tiền công dự kiến: ${Number(booking.staff_net_wage || booking.staff_wage || 0).toLocaleString('vi-VN')} đ`,
+      data: booking,
+      sound: 'new_order',
+      created_at: new Date().toISOString()
+    };
+
+    // 1. Hạng Vàng: Bắn thông báo NGAY LẬP TỨC (ưu tiên trước 30 giây)
+    goldStaff.forEach(staffId => {
+      notifyUser(staffId, { ...payload, title: '🥇 [VIP Ưu Tiên Sớm] Có đơn mới!' });
+    });
+
+    // 2. Hạng Bạc: Đẩy thông báo sau 30 giây
+    setTimeout(async () => {
+      try {
+        const BookingModel = require('../models/bookingModel');
+        const currentBooking = await BookingModel.getById(booking.id);
+        // Nếu đơn đã được ai nhận (confirmed) hoặc bị hủy, không thông báo nữa
+        if (!currentBooking || currentBooking.status !== 'pending') return;
+
+        standardStaff.forEach(staffId => {
+          notifyUser(staffId, payload);
+        });
+      } catch (e) {
+        console.error('[Socket Delay 30s Error]', e.message);
+      }
+    }, 30000);
+
+    // 3. Hạng Cam: Đẩy thông báo sau 60 giây (nếu đơn vẫn còn trống)
+    setTimeout(async () => {
+      try {
+        const BookingModel = require('../models/bookingModel');
+        const currentBooking = await BookingModel.getById(booking.id);
+        if (!currentBooking || currentBooking.status !== 'pending') return;
+
+        warningStaff.forEach(staffId => {
+          notifyUser(staffId, payload);
+        });
+      } catch (e) {
+        console.error('[Socket Delay 60s Error]', e.message);
+      }
+    }, 60000);
+
+  } catch (err) {
+    console.error('[Dispatch New Booking Error]', err.message);
+    // Fallback nếu có lỗi
+    notifyRole('staff', {
+      type: 'new_booking',
+      title: '🔔 Có đơn dịch vụ mới trên sàn!',
+      message: `${booking.service_name || 'Dịch vụ'} tại ${booking.address}.`,
+      data: booking,
+      sound: 'new_order'
+    });
+  }
+}
+
 module.exports = {
+  dispatchNewBookingAlert,
   initSocket,
   getIO,
   notifyUser,

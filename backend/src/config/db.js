@@ -37,6 +37,10 @@ const inMemoryData = {
       address: 'Tòa nhà DabClean, Cầu Giấy, Hà Nội',
       role: 'admin',
       status: 'active',
+      reputation_score: 100,
+      reputation_tier: 'silver',
+      suspended_until: null,
+      consecutive_completed_tasks: 0,
       created_at: new Date('2026-01-01T08:00:00Z')
     },
     {
@@ -48,6 +52,10 @@ const inMemoryData = {
       address: 'Số 25 Phố Duy Tân, Dịch Vọng Hậu, Cầu Giấy, Hà Nội',
       role: 'customer',
       status: 'active',
+      reputation_score: 100,
+      reputation_tier: 'silver',
+      suspended_until: null,
+      consecutive_completed_tasks: 0,
       created_at: new Date('2026-02-15T09:30:00Z')
     },
     {
@@ -59,6 +67,10 @@ const inMemoryData = {
       address: 'Số 12 Chùa Láng, Đống Đa, Hà Nội',
       role: 'staff',
       status: 'active',
+      reputation_score: 100,
+      reputation_tier: 'silver',
+      suspended_until: null,
+      consecutive_completed_tasks: 0,
       created_at: new Date('2026-02-01T08:00:00Z')
     },
     {
@@ -70,6 +82,10 @@ const inMemoryData = {
       address: 'Khu đô thị Ngoại Giao Đoàn, Bắc Từ Liêm, Hà Nội',
       role: 'staff',
       status: 'active',
+      reputation_score: 100,
+      reputation_tier: 'silver',
+      suspended_until: null,
+      consecutive_completed_tasks: 0,
       created_at: new Date('2026-02-10T08:00:00Z')
     },
     {
@@ -81,6 +97,10 @@ const inMemoryData = {
       address: 'Vinhomes Smart City, Nam Từ Liêm, Hà Nội',
       role: 'customer',
       status: 'active',
+      reputation_score: 100,
+      reputation_tier: 'silver',
+      suspended_until: null,
+      consecutive_completed_tasks: 0,
       created_at: new Date('2026-03-01T08:00:00Z')
     },
     {
@@ -92,6 +112,10 @@ const inMemoryData = {
       address: 'Hà Nội',
       role: 'customer',
       status: 'inactive',
+      reputation_score: 100,
+      reputation_tier: 'silver',
+      suspended_until: null,
+      consecutive_completed_tasks: 0,
       created_at: new Date('2026-03-05T08:00:00Z')
     }
   ],
@@ -455,6 +479,10 @@ const inMemoryData = {
 inMemoryData.jobPhotos = [];
 inMemoryData.bookingNotifications = [];
 inMemoryData.staff_commission_payments = [];
+inMemoryData.reputation_logs = [];
+inMemoryData.booking_disputes = [];
+inMemoryData.equipment_inventory = [];
+inMemoryData.staff_equipment_allocations = [];
 inMemoryData.system_configs = [
   {
     id: 1,
@@ -1391,6 +1419,94 @@ async function initDatabase() {
       await connection.query("ALTER TABLE bookings ADD COLUMN commission_refunded_at DATETIME NULL DEFAULT NULL COMMENT 'Thời điểm hoàn chiết khấu'");
     }
 
+        // Auto-migration: reputation system columns and reputation_logs table
+    const [userCols] = await connection.query(
+      `SELECT COLUMN_NAME FROM INFORMATION_SCHEMA.COLUMNS
+       WHERE TABLE_SCHEMA = DATABASE() AND TABLE_NAME = 'users'`
+    );
+    const existingUserCols = new Set(userCols.map(c => c.COLUMN_NAME));
+    if (!existingUserCols.has('reputation_score')) {
+      await connection.query("ALTER TABLE users ADD COLUMN reputation_score INT NOT NULL DEFAULT 100 COMMENT 'Điểm tín nhiệm hiện tại của nhân viên'");
+    }
+    if (!existingUserCols.has('reputation_tier')) {
+      await connection.query("ALTER TABLE users ADD COLUMN reputation_tier ENUM('gold', 'silver', 'bronze', 'suspended') NOT NULL DEFAULT 'silver' COMMENT 'Cấp bậc thợ'");
+    }
+    if (!existingUserCols.has('suspended_until')) {
+      await connection.query("ALTER TABLE users ADD COLUMN suspended_until DATETIME DEFAULT NULL COMMENT 'Thời hạn phạt khóa'");
+    }
+    if (!existingUserCols.has('consecutive_completed_tasks')) {
+      await connection.query("ALTER TABLE users ADD COLUMN consecutive_completed_tasks INT NOT NULL DEFAULT 0 COMMENT 'Đếm chuỗi ca hoàn thành liên tiếp'");
+    }
+
+    await connection.query(`
+      CREATE TABLE IF NOT EXISTS booking_disputes (
+        id INT AUTO_INCREMENT PRIMARY KEY,
+        booking_id INT NOT NULL,
+        customer_id INT NOT NULL,
+        staff_id INT NOT NULL,
+        dispute_type ENUM('damage_property', 'loss_property', 'poor_cleaning', 'attitude', 'other') NOT NULL,
+        title VARCHAR(255) NOT NULL,
+        description TEXT NOT NULL,
+        evidence_photos JSON NULL,
+        claimed_amount DECIMAL(12, 2) DEFAULT 0.00,
+        approved_amount DECIMAL(12, 2) DEFAULT 0.00,
+        compensation_source ENUM('staff_wallet', 'platform_insurance', 'split', 'rejected') DEFAULT 'staff_wallet',
+        status ENUM('pending', 'investigating', 'resolved', 'rejected') DEFAULT 'pending',
+        admin_notes TEXT NULL,
+        resolved_by INT NULL,
+        created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+        resolved_at DATETIME NULL,
+        FOREIGN KEY (booking_id) REFERENCES bookings(id),
+        FOREIGN KEY (customer_id) REFERENCES users(id),
+        FOREIGN KEY (staff_id) REFERENCES users(id)
+      ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci
+    `);
+
+    await connection.query(`
+      CREATE TABLE IF NOT EXISTS equipment_inventory (
+        id INT AUTO_INCREMENT PRIMARY KEY,
+        item_code VARCHAR(50) UNIQUE NOT NULL,
+        item_name VARCHAR(150) NOT NULL,
+        category ENUM('uniform', 'tool', 'chemical', 'protective_gear') NOT NULL,
+        unit VARCHAR(20) NOT NULL,
+        unit_price DECIMAL(10, 2) DEFAULT 0.00,
+        stock_quantity INT DEFAULT 0,
+        is_active TINYINT(1) DEFAULT 1,
+        created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
+      ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci
+    `);
+
+    await connection.query(`
+      CREATE TABLE IF NOT EXISTS staff_equipment_allocations (
+        id INT AUTO_INCREMENT PRIMARY KEY,
+        staff_id INT NOT NULL,
+        item_id INT NOT NULL,
+        quantity INT DEFAULT 1,
+        allocated_date DATE NOT NULL,
+        allocation_type ENUM('free', 'deposit', 'sold') DEFAULT 'free',
+        status ENUM('holding', 'returned', 'damaged', 'lost') DEFAULT 'holding',
+        notes VARCHAR(255) NULL,
+        FOREIGN KEY (staff_id) REFERENCES users(id),
+        FOREIGN KEY (item_id) REFERENCES equipment_inventory(id)
+      ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci
+    `);
+
+    await connection.query(`
+      CREATE TABLE IF NOT EXISTS reputation_logs (
+        id BIGINT AUTO_INCREMENT PRIMARY KEY,
+        staff_id INT NOT NULL,
+        booking_id INT DEFAULT NULL,
+        change_amount INT NOT NULL,
+        balance_after INT NOT NULL,
+        reason VARCHAR(100) NOT NULL,
+        created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+        INDEX idx_rep_staff (staff_id),
+        INDEX idx_rep_booking (booking_id),
+        CONSTRAINT fk_rep_staff FOREIGN KEY (staff_id) REFERENCES users(id) ON DELETE CASCADE,
+        CONSTRAINT fk_rep_booking FOREIGN KEY (booking_id) REFERENCES bookings(id) ON DELETE SET NULL
+      ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci
+    `);
+
     console.log(`[Database] Đã kết nối thành công tới MySQL Server (${dbConfig.host}:${dbConfig.port}/${dbConfig.database})`);
     isConnectedToMySQL = true;
   } finally {
@@ -1661,6 +1777,14 @@ function queryInMemory(sql, params = []) {
       }
       if (normalizedSql.includes('password = ?')) {
         user.password = params[0];
+      }
+      if (normalizedSql.includes('reputation_score = ?')) {
+        user.reputation_score = params[0];
+        user.reputation_tier = params[1];
+        user.suspended_until = params[2];
+      }
+      if (normalizedSql.includes('consecutive_completed_tasks = ?')) {
+        user.consecutive_completed_tasks = params[0];
       }
       if (normalizedSql.includes('name = ?') && normalizedSql.includes('phone = ?')) {
         user.name = params[0];

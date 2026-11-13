@@ -307,6 +307,28 @@
                     </div>
                     <div class="addon-price">+80.000 đ</div>
                   </div>
+
+                  <div class="addon-card" data-addon="dabclean_kit" data-price="30000">
+                    <div class="addon-card-left">
+                      <div class="addon-custom-checkbox">✓</div>
+                      <div>
+                        <div class="addon-name">🧰 Bộ Hóa chất & Dụng cụ chuyên dụng DabClean</div>
+                        <small style="font-size: 11px; color: var(--color-text-muted);">Thợ mang khăn nano 4 màu, nước tẩy cặn sinh học, chổi & găng tay cao su</small>
+                      </div>
+                    </div>
+                    <div class="addon-price">+30.000 đ</div>
+                  </div>
+
+                  <div class="addon-card" data-addon="industrial_vacuum" data-price="50000">
+                    <div class="addon-card-left">
+                      <div class="addon-custom-checkbox">✓</div>
+                      <div>
+                        <div class="addon-name">🌪️ Mang theo Máy hút bụi công nghiệp cầm tay</div>
+                        <small style="font-size: 11px; color: var(--color-text-muted);">Lực hút lốc xoáy công suất lớn, xử lý lông thú cưng & thảm dày chuyên sâu</small>
+                      </div>
+                    </div>
+                    <div class="addon-price">+50.000 đ</div>
+                  </div>
                 </div>
               </div>
 
@@ -445,6 +467,20 @@
                   </div>
                 </div>
                 <input type="hidden" id="booking-payment" value="cash">
+              </div>
+
+              <!-- Chọn Nhân Viên Ưu Tiên / Thợ Quen -->
+              <div class="form-group">
+                <div style="display: flex; justify-content: space-between; align-items: baseline; margin-bottom: 6px;">
+                  <label class="form-label" for="select-preferred-staff" style="margin-bottom: 0;">
+                    ⭐ Chọn nhân viên ưu tiên / Thợ quen (Tùy chọn)
+                  </label>
+                  <span style="font-size: 11px; color: var(--color-text-secondary);">Ưu tiên thợ kinh nghiệm & uy tín</span>
+                </div>
+                <select id="select-preferred-staff" class="form-control" style="font-size: 13px;">
+                  <option value="">-- Hệ thống tự động điều phối thợ nhanh nhất (Mặc định) --</option>
+                </select>
+                <div id="preferred-staff-badge-box" style="margin-top: 8px; display: none;"></div>
               </div>
 
               <!-- Ghi chú thêm -->
@@ -706,6 +742,67 @@
       if (navUserEmail) navUserEmail.textContent = user.name || user.email || 'Khách hàng';
 
       if (user.phone) document.getElementById('booking-phone').value = user.phone;
+
+      // Nạp danh sách ứng viên thợ cho khách chọn
+      async function loadStaffCandidates() {
+        try {
+          const staffSelect = document.getElementById('select-preferred-staff');
+          const badgeBox = document.getElementById('preferred-staff-badge-box');
+          if (!staffSelect) return;
+
+          const res = await DabCleanAPI.bookings.getStaffCandidates();
+          const candidates = (res && res.data) || [];
+
+          candidates.forEach(cand => {
+            const opt = document.createElement('option');
+            opt.value = cand.id;
+            const goldTag = cand.is_gold ? ' 🥇 [Hạng Vàng]' : '';
+            opt.textContent = `${cand.name}${goldTag} - ${cand.avg_rating}⭐ (${cand.completed_tasks} ca)`;
+            opt.dataset.isGold = cand.is_gold ? 'true' : 'false';
+            opt.dataset.rating = cand.avg_rating;
+            opt.dataset.tasks = cand.completed_tasks;
+            opt.dataset.name = cand.name;
+            staffSelect.appendChild(opt);
+          });
+
+          staffSelect.addEventListener('change', function () {
+            const selectedOpt = staffSelect.options[staffSelect.selectedIndex];
+            if (!selectedOpt || !selectedOpt.value) {
+              badgeBox.style.display = 'none';
+              badgeBox.innerHTML = '';
+              return;
+            }
+
+            const isGold = selectedOpt.dataset.isGold === 'true';
+            const rating = selectedOpt.dataset.rating || '5.0';
+            const tasks = selectedOpt.dataset.tasks || '0';
+            const name = selectedOpt.dataset.name || '';
+
+            badgeBox.style.display = 'block';
+            if (isGold) {
+              badgeBox.innerHTML = `
+                <div style="background: linear-gradient(135deg, #FEF9C3 0%, #FEF08A 100%); border: 1px solid #FACC15; padding: 10px 14px; border-radius: 10px; display: flex; align-items: center; gap: 10px; color: #854D0E;">
+                  <span style="font-size: 22px;">🥇</span>
+                  <div>
+                    <div style="font-weight: 800; font-size: 13px;">Đối tác Hạng Vàng - Đánh giá ${rating}⭐ (${tasks} ca)</div>
+                    <div style="font-size: 11px; opacity: 0.9;">${name} là chuyên viên vệ sinh xuất sắc, được khách hàng tin tưởng và đánh giá cao nhất.</div>
+                  </div>
+                </div>
+              `;
+            } else {
+              badgeBox.innerHTML = `
+                <div style="background: #F1F5F9; border: 1px solid #CBD5E1; padding: 8px 12px; border-radius: 10px; font-size: 12px; color: #334155;">
+                  👤 <strong>${name}</strong> · Đánh giá: <strong>${rating}⭐</strong> · Đã hoàn thành <strong>${tasks} ca</strong>
+                </div>
+              `;
+            }
+          });
+        } catch (err) {
+          console.warn('Không thể nạp danh sách thợ khả dụng:', err);
+        }
+      }
+
+      loadStaffCandidates();
       if (user.address) document.getElementById('booking-address').value = user.address;
 
       // 2. Nạp Sổ địa chỉ đã lưu (nếu có)
@@ -1464,7 +1561,7 @@
           addons: activeAddonKeys,
           discount_code: promoCode || (promoApplied ? 'DABCLEAN20' : null),
           payment_method: paymentMethodChosen,
-          preferred_staff_id: window.DabCleanStaffDirectory?.preferredId(),
+          preferred_staff_id: window.DabCleanStaffDirectory?.preferredId() || document.getElementById('select-preferred-staff')?.value || null,
           ai_analysis: currentAiData ? {
             score: currentAiData.score,
             rating_1to5: currentAiData.rating1to5 || Math.min(5, Math.max(1, Math.ceil(currentAiData.score / 20))),

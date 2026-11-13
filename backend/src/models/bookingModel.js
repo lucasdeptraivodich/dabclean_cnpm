@@ -48,7 +48,9 @@ const BookingModel = {
     quote_notes,
     construction_notes,
     addons,
-    addon_amount
+    addon_amount,
+    staff_id = null,
+    status = 'pending'
   }) {
     const gross = Math.max(0, Math.round(parseFloat(staff_wage) || 0));
     const commRate = commission_rate !== undefined && commission_rate !== null ? parseFloat(commission_rate) : 0.20;
@@ -61,8 +63,8 @@ const BookingModel = {
 
     const result = await db.query(
       `INSERT INTO bookings 
-       (booking_code, user_id, service_id, booking_date, booking_time, area_size, frequency, address, phone, notes, total_price, discount_code, payment_method, duration_hours, staff_wage, commission_rate, platform_commission, staff_net_wage, wage_status, package_type, shift_choice, recipient_name, recipient_age, recipient_gender, care_scope_notes, pricing_type, building_type, area_m2, floors, construction_status, dirt_severity, glass_cleaning, stubborn_stains, furniture_status, worker_count, work_days, quote_status, quote_min_price, quote_max_price, quote_notes, construction_notes, addons, addon_amount) 
-       VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)`,
+       (booking_code, user_id, service_id, booking_date, booking_time, area_size, frequency, address, phone, notes, total_price, discount_code, payment_method, duration_hours, staff_wage, commission_rate, platform_commission, staff_net_wage, wage_status, package_type, shift_choice, recipient_name, recipient_age, recipient_gender, care_scope_notes, pricing_type, building_type, area_m2, floors, construction_status, dirt_severity, glass_cleaning, stubborn_stains, furniture_status, worker_count, work_days, quote_status, quote_min_price, quote_max_price, quote_notes, construction_notes, addons, addon_amount, staff_id, status) 
+       VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)`,
       [
         booking_code,
         user_id,
@@ -106,7 +108,9 @@ const BookingModel = {
         quote_notes || null,
         construction_notes || null,
         addons ? JSON.stringify(addons) : null,
-        addon_amount ? parseFloat(addon_amount) : 0.00
+        addon_amount ? parseFloat(addon_amount) : 0.00,
+        staff_id ? parseInt(staff_id, 10) : null,
+        status || 'pending'
       ]
     );
     return result.insertId;
