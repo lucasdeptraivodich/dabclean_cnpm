@@ -1,5 +1,5 @@
 // ============================================================
-// CLEANOVA BACKEND - JWT Security Configuration
+// DabClean BACKEND - JWT Security Configuration
 // Quản lý khóa bí mật ký và xác thực JWT token an toàn
 // ============================================================
 const crypto = require('crypto');

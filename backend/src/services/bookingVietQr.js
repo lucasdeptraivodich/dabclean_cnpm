@@ -6,13 +6,13 @@ function buildBookingVietQr(booking, demoMode = false) {
   if (!Number.isSafeInteger(amount) || amount <= 0 || amount > 9999999999999) return null;
   if (typeof booking.booking_code !== 'string' || !/^[A-Za-z0-9-]{1,40}$/.test(booking.booking_code)) return null;
   const transferContent = 'DABCLEAN ' + booking.booking_code.replace(/-/g, '').toUpperCase();
-  const url = new URL('https://img.vietqr.io/image/BIDV-8888444265-compact2.png');
+  const url = new URL('https://img.vietqr.io/image/BIDV-8888444265-print.svg');
   url.searchParams.set('amount', String(amount));
   url.searchParams.set('addInfo', transferContent);
   return {
     provider: 'vietqr', bank_id: 'BIDV', bank_name: 'BIDV', account_number: '8888444265',
     amount, currency: 'VND', transfer_content: transferContent, qr_url: url.href,
-    demo_mode: demoMode === true, confirmation: 'bank_reconciliation_required'
+    demo_mode: demoMode, confirmation: 'bank_reconciliation_required'
   };
 }
 module.exports = { buildBookingVietQr };

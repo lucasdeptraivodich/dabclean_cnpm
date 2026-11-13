@@ -2,6 +2,8 @@
 // so validation + debit + assignment cannot interleave between competing requests.
 module.exports = function createDemoStore(data) {
   const wallets = [], transactions = [], payments = [];
+  const suspended = new Set();
+  const features = require('./demoFeatures')(data, { compensate, settle, isSuspended: id => suspended.has(id) });
   const clone = value => structuredClone(value);
   const fail = (message, statusCode = 400) => { const e = new Error(message); e.statusCode = statusCode; throw e; };
   const booking = id => data.bookings.find(b => b.id === Number(id)) || fail('Không tìm thấy đơn demo.', 404);
@@ -24,6 +26,19 @@ module.exports = function createDemoStore(data) {
     transactions.push(tx);
     return tx;
   }
+  function compensate(b, amount, large) {
+    const debit = large ? 500000 : amount;
+    const earnings = wallet(b.staff_id, 'earnings'), credit = wallet(b.staff_id, 'credit');
+    const available = w => w.status === 'active' ? Math.max(0, w.balance) : 0;
+    const fromEarnings = Math.min(debit, available(earnings));
+    if (available(credit) < debit - fromEarnings) fail('Ví nhân viên không đủ số dư để khấu trừ. Khiếu nại vẫn đang mở.', 409);
+    const customer = wallet(b.user_id, 'customer');
+    if (fromEarnings) record(earnings, -fromEarnings, 'adjustment', b.id, 'Khấu trừ bồi thường');
+    if (debit > fromEarnings) record(credit, -(debit - fromEarnings), 'adjustment', b.id, 'Khấu trừ bồi thường');
+    record(customer, amount, 'refund', b.id, 'Bồi thường sự cố');
+    if (large) suspended.add(b.staff_id);
+    return { staffDebit: debit, insuranceContribution: amount - debit };
+  }
   function staffWallets(id) {
     const credit = wallet(id, 'credit'), earnings = wallet(id, 'earnings');
     const rows = data.bookings.filter(b => b.staff_id === Number(id) && b.status === 'completed');
@@ -40,8 +55,10 @@ module.exports = function createDemoStore(data) {
     const b = booking(bookingId), staff = user(staffId);
     if (!['staff', 'admin'].includes(staff.role) || staff.status !== 'active') fail('Tài khoản không được nhận ca.', 403);
     if (['confirmed', 'arrived', 'in_progress'].includes(b.status) && b.staff_id === staff.id) return clone({ success: true, demo_mode: true, requires_bank_transfer: false, message: 'DEMO: Bạn đã nhận đơn này; không trừ ví lần hai.', data: { booking_id: b.id, status: b.status } });
+    if (suspended.has(staffId)) fail('Tài khoản đang tạm dừng nhận ca để kiểm định.', 409);
     if (!['pending', 'assigned'].includes(b.status) || (b.staff_id != null && b.staff_id !== staff.id)) fail('Đơn không còn khả dụng hoặc đã được nhận bởi nhân viên khác.', 409);
     if (paymentMethod !== 'wallet') fail('DEMO chỉ dùng ví giả lập; không chuyển khoản ngân hàng thật.');
+    features.enforceDispatch(b.id, staff.id);
     const total = Math.max(0, Math.round(Number(b.total_price) || 0));
     const gross = Math.max(0, Math.round(Number(b.staff_wage) || total * 0.8));
     const rate = b.commission_rate ? Number(b.commission_rate) : 0.20;
@@ -50,11 +67,24 @@ module.exports = function createDemoStore(data) {
     const w = wallet(staff.id, 'credit');
     if (w.status !== 'active' || w.balance < Math.max(100000, commission)) fail('Ví DEMO chưa đủ điều kiện. Có thể chuyển từ thu nhập giả lập hoặc khởi động lại demo để cấp lại ví (sẽ mất dữ liệu RAM).', 409);
     const tx = record(w, -commission, 'commission_deduction', b.id, 'Nhận ca ' + b.booking_code);
-    const p = { id: payments.length + 1, booking_id: b.id, staff_id: staff.id, amount: commission, status: 'completed', payment_method: 'wallet' };
+    const p = { id: payments.length + 1, booking_id: b.id, booking_code: b.booking_code, staff_id: staff.id,
+      amount: commission, status: 'completed', payment_method: 'wallet', paid_at: tx.created_at };
     payments.push(p);
     Object.assign(b, { status: 'confirmed', staff_id: staff.id, staff_name: staff.name, assigned_at: new Date(), commission_status: 'paid', commission_payment_id: p.id, commission_payment_method: 'wallet', commission_paid_at: new Date() });
-    data.bookingNotifications.push({ id: data.bookingNotifications.length + 1, user_id: b.user_id, booking_id: b.id, notification_type: 'staff_accepted_booking', title: 'DEMO: Nhân viên đã nhận đơn ' + b.booking_code, message: `${staff.name} đã nhận đơn demo; không có giao dịch tiền thật.`, data: JSON.stringify({ bookingId: b.id, staffName: staff.name }), is_read: false, created_at: new Date() });
+    const reserved = features.markPrebookConfirmed(b.id);
+    data.bookingNotifications.push({ id: data.bookingNotifications.length + 1, user_id: b.user_id, booking_id: b.id, notification_type: 'staff_accepted_booking', title: reserved ? 'Nhân Viên Đã Xác Nhận Lịch Hẹn' : 'DEMO: Nhân viên đã nhận đơn ' + b.booking_code, message: `${staff.name} đã nhận đơn demo; không có giao dịch tiền thật.`, data: JSON.stringify({ bookingId: b.id, staffName: staff.name }), is_read: false, created_at: new Date() });
     return clone({ success: true, demo_mode: true, requires_bank_transfer: false, message: 'DEMO: Đã nhận ca và trừ chiết khấu giả lập.', data: { booking_id: b.id, booking_code: b.booking_code, status: b.status, commission_amount: commission, credit_balance_before: tx.balance_before, credit_balance_after: tx.balance_after, payment_method: 'wallet', payment_id: p.id } });
+  }
+  function promotePrebook(staffId) {
+    const next = features.nextApproved(staffId);
+    if (!next) return [];
+    try {
+      accept({ bookingId: next.id, staffId });
+    } catch (err) {
+      if (err.statusCode !== 409 && err.statusCode !== 403) throw err;
+      features.decidePrebook({ id: staffId, role: 'staff' }, next.id, 'decline', 'Nhân viên chưa đủ điều kiện nhận ca đặt trước.');
+    }
+    return [next.user_id, staffId];
   }
   const idempotent = new Map();
   function topup({ userId, staffId, amount, idempotencyKey }, credit = false) {
@@ -85,6 +115,7 @@ module.exports = function createDemoStore(data) {
     const b = booking(bookingId);
     if (b.status !== 'completed') fail('Chỉ quyết toán đơn đã hoàn thành.', 409);
     if (b.wage_status === 'paid') return { demo_mode: true, isIdempotent: true };
+    features.enforceSettlement(b.id);
     const credit = wallet(b.staff_id, 'credit'), earnings = wallet(b.staff_id, 'earnings');
     const gross = Number(b.staff_wage) || 0, fee = Math.min(gross, Math.round(gross * (Number(b.commission_rate) || 0.2)));
     const net = Math.max(0, gross - fee);
@@ -115,10 +146,28 @@ module.exports = function createDemoStore(data) {
     if (key) idempotent.set(key, result);
     return clone(result);
   }
-  function cancellation({ bookingId, fault }) {
+  function cancellation({ bookingId, cancelReason, fault }) {
     const b = booking(bookingId);
-    b.commission_refund_status = fault === 'staff' ? 'rejected' : 'pending';
-    return { demo_mode: true, refunded: false, reason: fault === 'staff' ? 'Hủy do lỗi nhân viên: không hoàn chiết khấu.' : 'Cần quản trị viên xem xét hoàn chiết khấu demo.' };
+    const payment = payments.find(p => p.id === b.commission_payment_id && p.booking_id === b.id);
+    if (b.commission_status !== 'paid' || payment?.status !== 'completed') {
+      return { demo_mode: true, refunded: false, reason: 'Không có khoản chiết khấu demo đã thanh toán để hoàn.' };
+    }
+
+    b.commission_refund_reason = cancelReason;
+    if (fault === 'staff') {
+      payment.refund_status = b.commission_refund_status = 'rejected';
+      return { demo_mode: true, refunded: false, reason: 'Hủy do lỗi nhân viên: không hoàn chiết khấu.' };
+    }
+    if (!['customer', 'admin', 'force_majeure', 'not_staff'].includes(fault)) {
+      payment.refund_status = b.commission_refund_status = 'pending_review';
+      return { demo_mode: true, refunded: false, reason: 'Cần quản trị viên xem xét hoàn chiết khấu demo.' };
+    }
+
+    const credit = wallet(payment.staff_id, 'credit');
+    record(credit, payment.amount, 'refund', b.id, 'Hoàn chiết khấu ' + b.booking_code);
+    payment.status = payment.refund_status = 'refunded';
+    Object.assign(b, { commission_status: 'refunded', commission_refund_status: 'refunded', commission_refunded_at: new Date() });
+    return { demo_mode: true, refunded: true, refund_method: 'wallet', amount: payment.amount, credit_balance_after: credit.balance };
   }
   function summary(id) {
     const w = staffWallets(id), rows = data.bookings.filter(b => b.staff_id === Number(id));
@@ -134,5 +183,24 @@ module.exports = function createDemoStore(data) {
     const tx = record(earnings, n, 'wage', bookingId, `Tiền tip khách thưởng đơn #${bookingCode || bookingId}`);
     return clone({ demo_mode: true, success: true, amount: n, balance_after: tx.balance_after });
   }
-  return { getWallet: (id, type) => clone(wallet(id, type)), staffWallets, getTransactions, summary, accept, topup, payBooking, refundBooking, transfer, settle, cancellation, creditTip };
+  function exportFinance(from, to, kind) {
+    const inRange = date => date >= from && date < to;
+    if (kind === 'ledger') {
+      return [
+        ['Mã giao dịch', 'Ngày UTC', 'Mã tài khoản', 'Loại ví', 'Loại giao dịch', 'Số tiền', 'Số dư trước', 'Số dư sau'],
+        ...transactions.filter(tx => inRange(tx.created_at)).map(tx => [
+          tx.transaction_code, tx.created_at.toISOString(), tx.user_id, tx.wallet_type, tx.type,
+          tx.amount, tx.balance_before, tx.balance_after
+        ])
+      ];
+    }
+    return [
+      ['Mã đơn', 'Mã nhân viên', 'Ngày thu UTC', 'Chiết khấu đã thu', 'Trạng thái'],
+      ...payments.filter(payment => inRange(payment.paid_at)).map(payment => [
+        payment.booking_code, payment.staff_id, payment.paid_at.toISOString(), payment.amount,
+        payment.refund_status || payment.status
+      ])
+    ];
+  }
+  return { features, exportFinance, promotePrebook, getWallet: (id, type) => clone(wallet(id, type)), staffWallets, getTransactions, summary, accept, topup, payBooking, refundBooking, transfer, settle, cancellation, creditTip };
 };

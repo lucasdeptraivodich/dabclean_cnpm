@@ -8,6 +8,7 @@
   <link rel="stylesheet" href="app.css">
   <link rel="stylesheet" href="css/realtime-notification.css">
   <script src="api.js"></script>
+  <script defer src="js/staff-directory.js"></script>
   <script src="js/staff-job-actions.js" defer></script>
   <link rel="stylesheet" href="css/staff-navigation.css">
   <style>
@@ -581,7 +582,7 @@
     <div class="container">
 
       <!-- Thông báo hệ thống Toast/Alert -->
-      <div id="staff-alert" class="alert" style="display: none; margin-bottom: var(--space-lg);"></div>
+      <div id="staff-alert" class="alert viewport-alert" style="display: none;" role="alert"></div>
 
       <!-- Tiêu đề trang & Lời chào nhân viên -->
       <div class="page-header" style="display: flex; justify-content: space-between; align-items: center; flex-wrap: wrap; gap: var(--space-md); margin-bottom: var(--space-xl);">
@@ -590,6 +591,7 @@
           <p class="page-subtitle">Quản lý các công việc vệ sinh được phân công, cập nhật tiến độ và thông tin khách hàng.</p>
         </div>
         <div style="display: flex; gap: var(--space-sm);">
+          <a id="staff-reservations-link" href="demo-features.html#offers" class="btn btn-outline btn-sm" hidden>Lịch đặt trước</a>
           <button type="button" class="btn btn-outline btn-sm" id="btn-refresh-tasks" style="background: var(--color-white);">
             🔄 Làm mới danh sách
           </button>
@@ -728,6 +730,7 @@
             <h2 style="font-size: 18px; font-weight: 800; margin-bottom: var(--space-xs); color: var(--color-text);">👤 Thông Tin Cá Nhân</h2>
             <p style="font-size: 13px; color: var(--color-text-secondary); margin-bottom: var(--space-lg);">Cập nhật số điện thoại và địa chỉ thường trú để điều phối viên dễ dàng liên hệ.</p>
 
+            <section id="staff-face-check" class="staff-directory-panel" hidden></section>
             <form id="form-staff-profile">
               <div class="form-group" style="margin-bottom: var(--space-md);">
                 <label class="form-label">Họ và tên</label>
@@ -1043,7 +1046,7 @@
         <div style="font-size: 44px; margin-bottom: 12px;">🚫</div>
         <h4 style="font-size: 16px; font-weight: 700; margin-bottom: 8px; color: #1E293B;">Chức Năng Nạp Tiền Chủ Động Đã Vô Hiệu Hóa</h4>
         <p style="font-size: 13px; color: #64748B; line-height: 1.6; margin-bottom: 20px; text-align: justify;">
-          Theo quy định mới của CleanNova / DabClean, nhân viên <strong>không còn nạp tiền chủ động</strong> vào Ví Tín Dụng. Thay vào đó, khi nhận đơn, nếu ví của bạn không đủ tiền trừ chiết khấu, hệ thống sẽ hiển thị mã <strong>VietQR</strong> để bạn chuyển khoản thanh toán riêng cho đơn đó một cách minh bạch.
+          Theo quy định mới của DabClean, nhân viên <strong>không còn nạp tiền chủ động</strong> vào Ví Tín Dụng. Thay vào đó, khi nhận đơn, nếu ví của bạn không đủ tiền trừ chiết khấu, hệ thống sẽ hiển thị mã <strong>VietQR</strong> để bạn chuyển khoản thanh toán riêng cho đơn đó một cách minh bạch.
         </p>
         <button type="button" class="btn btn-primary" data-close="modal-staff-topup-credit" style="width: 100%;">
           Đã Hiểu
@@ -1337,12 +1340,13 @@
 
       // Utility Alert
       const alertBox = document.getElementById('staff-alert');
+      let alertTimer;
       function showAlert(type, message) {
-        alertBox.className = `alert alert-${type}`;
+        alertBox.className = `alert viewport-alert alert-${type}`;
         alertBox.textContent = message;
         alertBox.style.display = 'block';
-        window.scrollTo({ top: 0, behavior: 'smooth' });
-        setTimeout(() => { alertBox.style.display = 'none'; }, 6000);
+        clearTimeout(alertTimer);
+        alertTimer = setTimeout(() => { alertBox.style.display = 'none'; }, 6000);
       }
 
       // Xử lý Tabs
@@ -1889,6 +1893,8 @@
           await refreshStaffEligibility();
           const res = await DabCleanAPI.staff.getMyTasks(currentFilterStatus);
           myTasksList = res.data || [];
+          demoTaskActions = res.demo_features === true;
+          document.getElementById('staff-reservations-link').hidden = !demoTaskActions;
 
           // Cập nhật thống kê
           const stats = res.stats || {
@@ -1939,6 +1945,7 @@
       }
 
       // Render các Task Cards
+      let demoTaskActions = false;
       function renderTasksList(tasks) {
         const container = document.getElementById('tasks-container');
         if (!tasks || tasks.length === 0) {
@@ -2058,6 +2065,12 @@
                     ${escapeHtml(address)}
                     ${['confirmed', 'arrived', 'in_progress'].includes(task.status)
                       ? `<button type="button" class="btn btn-secondary btn-sm" data-task-navigation="${Number(task.id)}">📍 Bản đồ / Chỉ đường</button>` : ''}
+                    ${demoTaskActions && ['confirmed', 'arrived', 'in_progress'].includes(task.status)
+                      ? `<a class="btn btn-secondary btn-sm" href="demo-features.html?order=${Number(task.id)}">Nhắn tin / Chia sẻ vị trí</a>` : ''}
+                    ${demoTaskActions && ['completed', 'cancelled'].includes(task.status)
+                      ? `<a class="btn btn-secondary btn-sm" href="demo-features.html?order=${Number(task.id)}">Xem khiếu nại</a>` : ''}
+                    ${demoTaskActions && task.status === 'in_progress'
+                      ? `<a class="btn btn-secondary btn-sm" href="demo-features.html?order=${Number(task.id)}#nghiem-thu">Ký nghiệm thu</a>` : ''}
                   </span>
                 </div>
                 <div class="task-info-item">

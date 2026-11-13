@@ -141,9 +141,9 @@ CREATE TABLE bookings (
   tip_created_at DATETIME DEFAULT NULL COMMENT 'Thời điểm khách ghi nhận tiền tip',
   duration_hours DECIMAL(4, 1) DEFAULT NULL COMMENT 'Thời lượng dịch vụ theo giờ (áp dụng cho dịch vụ tính theo giờ / chăm sóc)',
   staff_wage DECIMAL(12, 2) NOT NULL DEFAULT 0.00 COMMENT 'Tiền công chi trả cho nhân viên thực hiện (VNĐ)',
-  commission_rate DECIMAL(5, 4) NOT NULL DEFAULT 0.2000 COMMENT 'Tỷ lệ chiết khấu CleanNova khấu trừ từ tiền công (VD: 0.2000 = 20%)',
-  platform_commission DECIMAL(12, 2) NOT NULL DEFAULT 0.00 COMMENT 'Khoản chiết khấu hoa hồng CleanNova khấu trừ từ tiền công nhân viên (VNĐ)',
-  staff_net_wage DECIMAL(12, 2) NOT NULL DEFAULT 0.00 COMMENT 'Tiền công thực nhận của nhân viên sau khi trừ chiết khấu CleanNova (VNĐ)',
+  commission_rate DECIMAL(5, 4) NOT NULL DEFAULT 0.2000 COMMENT 'Tỷ lệ chiết khấu DabClean khấu trừ từ tiền công (VD: 0.2000 = 20%)',
+  platform_commission DECIMAL(12, 2) NOT NULL DEFAULT 0.00 COMMENT 'Khoản chiết khấu hoa hồng DabClean khấu trừ từ tiền công nhân viên (VNĐ)',
+  staff_net_wage DECIMAL(12, 2) NOT NULL DEFAULT 0.00 COMMENT 'Tiền công thực nhận của nhân viên sau khi trừ chiết khấu DabClean (VNĐ)',
   wage_status ENUM('pending', 'approved', 'paid', 'cancelled') NOT NULL DEFAULT 'pending' COMMENT 'Trạng thái đối soát tiền công: pending (chờ hoàn thành), approved (đã chốt), paid (đã chi trả), cancelled (hủy)',
   wage_settled_at DATETIME DEFAULT NULL COMMENT 'Thời điểm quản trị viên chi trả tiền công',
   wage_settled_by INT DEFAULT NULL COMMENT 'Admin ID đã duyệt chi trả tiền công',
@@ -282,8 +282,8 @@ CREATE TABLE staff_payout_logs (
   staff_id INT NOT NULL COMMENT 'Nhân viên nhận tiền công',
   admin_id INT NOT NULL COMMENT 'Quản trị viên thực hiện thao tác',
   gross_wage DECIMAL(12, 2) NOT NULL DEFAULT 0.00 COMMENT 'Tiền công gộp trước khấu trừ (VNĐ)',
-  commission_rate DECIMAL(5, 4) NOT NULL DEFAULT 0.2000 COMMENT 'Tỷ lệ chiết khấu CleanNova snapshot lúc quyết toán',
-  platform_commission DECIMAL(12, 2) NOT NULL DEFAULT 0.00 COMMENT 'Khoản chiết khấu hoa hồng CleanNova khấu trừ (VNĐ)',
+  commission_rate DECIMAL(5, 4) NOT NULL DEFAULT 0.2000 COMMENT 'Tỷ lệ chiết khấu DabClean snapshot lúc quyết toán',
+  platform_commission DECIMAL(12, 2) NOT NULL DEFAULT 0.00 COMMENT 'Khoản chiết khấu hoa hồng DabClean khấu trừ (VNĐ)',
   net_wage DECIMAL(12, 2) NOT NULL DEFAULT 0.00 COMMENT 'Tiền công thực nhận cộng vào ví nhân viên (VNĐ)',
   amount DECIMAL(12, 2) NOT NULL COMMENT 'Số tiền thực nhận chi trả vào ví (VNĐ)',
   action ENUM('approve', 'pay', 'adjust') NOT NULL DEFAULT 'pay' COMMENT 'Hành động: approve (chốt), pay (chi trả), adjust (điều chỉnh)',
@@ -326,7 +326,7 @@ CREATE TABLE wallets (
 ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci;
 
 -- ------------------------------------------------------------
--- BẢNG 10: wallet_transactions (Lịch sử giao dịch ví CleanNova)
+-- BẢNG 10: wallet_transactions (Lịch sử giao dịch ví DabClean)
 -- ------------------------------------------------------------
 CREATE TABLE wallet_transactions (
   id BIGINT AUTO_INCREMENT PRIMARY KEY,
@@ -451,7 +451,7 @@ CREATE TABLE voucher_usages (
 ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci;
 
 -- ------------------------------------------------------------
--- BẢNG 14: system_configs (Cấu hình chính sách hệ thống CleanNova)
+-- BẢNG 14: system_configs (Cấu hình chính sách hệ thống DabClean)
 -- ------------------------------------------------------------
 CREATE TABLE system_configs (
   id INT AUTO_INCREMENT PRIMARY KEY,

@@ -517,7 +517,7 @@
 <body>
 
   <!-- ============================================================
-       HEADER CLEANNOVA
+       HEADER DabClean
        ============================================================ -->
   <header class="header scrolled" role="banner">
     <div class="container">
@@ -565,7 +565,7 @@
   </header>
 
   <!-- ============================================================
-       NỘI DUNG CHÍNH: VÍ CLEANNOVA
+       NỘI DUNG CHÍNH: VÍ DabClean
        ============================================================ -->
   <main class="page-wrapper">
     <div class="container">
@@ -718,7 +718,7 @@
     </div>
   </div>
 
-  <!-- SCRIPT XỬ LÝ GIAO DIỆN VÍ CLEANNOVA -->
+  <!-- SCRIPT XỬ LÝ GIAO DIỆN VÍ DabClean -->
   <script>
     (function () {
       'use strict';
@@ -876,13 +876,13 @@
         modal.classList.add('active');
         document.body.style.overflow = 'hidden';  // chặn scroll nền phía sau
         // Chờ transition mở xong rồi focus để tránh nhảy scroll trên mobile
-        setTimeout(() => inputAmount.focus(), 50);
+        setTimeout(() => inputAmount.focus({ preventScroll: true }), 50);
       }
       function closeModal() {
         modal.classList.remove('active');
         document.body.style.overflow = '';
         // Trả focus về nút mở modal (tốt cho bàn phím / screen reader)
-        if (btnOpenTopup) btnOpenTopup.focus();
+        if (btnOpenTopup) btnOpenTopup.focus({ preventScroll: true });
       }
 
       // Đóng bằng phím Escape

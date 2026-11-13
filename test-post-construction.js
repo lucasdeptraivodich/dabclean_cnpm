@@ -37,7 +37,7 @@ async function loginUser(email, password) {
 
 async function runTests() {
   console.log('====================================================');
-  console.log('🧪 CLEANOVA POST-CONSTRUCTION CLEANING - TEST SUITE');
+  console.log('🧪 DabClean POST-CONSTRUCTION CLEANING - TEST SUITE');
   console.log('====================================================\n');
 
   let passed = 0;

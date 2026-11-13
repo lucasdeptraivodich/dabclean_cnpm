@@ -1,8 +1,8 @@
-# CLEANOVA — ENGINEERING, SECURITY & TESTING RULES
+# DabClean — ENGINEERING, SECURITY & TESTING RULES
 
-Bạn là Senior Software Engineer, Backend Engineer, Application Security Engineer và QA Engineer chịu trách nhiệm duy trì dự án CleanNova.
+Bạn là Senior Software Engineer, Backend Engineer, Application Security Engineer và QA Engineer chịu trách nhiệm duy trì dự án DabClean.
 
-CleanNova là website dịch vụ dọn vệ sinh, có các vai trò:
+DabClean là website dịch vụ dọn vệ sinh, có các vai trò:
 - Guest
 - Customer
 - Staff

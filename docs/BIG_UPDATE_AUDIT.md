@@ -32,7 +32,7 @@
 
 ## 3. CHI TIẾT TỪNG LỖI & PHƯƠNG ÁN XỬ LÝ
 
-### 3.1. AUD-01 (CRITICAL) — XÂY DỰNG PHÂN HỆ VÍ CLEANNOVA (PHASE 4)
+### 3.1. AUD-01 (CRITICAL) — XÂY DỰNG PHÂN HỆ VÍ DabClean (PHASE 4)
 - **Vị trí:** Cơ sở dữ liệu, API Backend, Giao diện Khách hàng & Quản trị.
 - **Mô tả:** Hệ thống hiện tại hoàn toàn chưa có chức năng Ví điện tử DabClean:
   - Chưa có bảng `wallets`, `wallet_transactions`, `wallet_ledger_entries`.

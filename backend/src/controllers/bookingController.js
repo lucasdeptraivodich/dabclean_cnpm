@@ -37,6 +37,15 @@ const bookingController = {
   // 1. Tạo đơn đặt dịch vụ mới (POST /api/bookings)
   async createBooking(req, res, next) {
     try {
+      const preferredStaffId = req.body.preferred_staff_id;
+      const prebook = req.body.prebook === true;
+      if (preferredStaffId != null) {
+        if (!db.demo) return res.status(400).json({ success: false, message: 'Chọn nhân viên hiện chỉ hỗ trợ chế độ demo.' });
+        db.demo.features.validateStaffChoice(preferredStaffId);
+        if (!prebook && db.demo.features.isStaffBusy(preferredStaffId)) {
+          return res.status(409).json({ success: false, code: 'DEMO_STAFF_BUSY', message: 'Nhân viên được chọn đang có ca dọn khác.' });
+        }
+      }
       const {
         service_id,
         booking_date,
@@ -71,6 +80,9 @@ const bookingController = {
         work_days = null,
         construction_notes = null
       } = req.body;
+      if (prebook && (preferredStaffId == null || payment_method === 'wallet')) {
+        return res.status(400).json({ success: false, message: 'Chọn nhân viên và dùng tiền mặt hoặc chuyển khoản cho lịch đặt trước.' });
+      }
 
       // Xác thực các trường bắt buộc
       if (!service_id) {
@@ -104,7 +116,7 @@ const bookingController = {
         return res.status(400).json({ success: false, message: 'Vui lòng nhập số điện thoại liên hệ.' });
       }
 
-      // Bảo vệ Bug 6: Kiểm tra payment_method trước khi ghi vào MySQL ENUM (hỗ trợ ví CleanNova)
+      // Bảo vệ Bug 6: Kiểm tra payment_method trước khi ghi vào MySQL ENUM (hỗ trợ ví DabClean)
       const validPaymentMethods = ['cash', 'bank_transfer', 'wallet'];
       if (!validPaymentMethods.includes(payment_method)) {
         return res.status(400).json({
@@ -259,6 +271,7 @@ const bookingController = {
           package_type: normalizedPackage,
           discount_code: normalizedPromo,
           voucher_discount: voucherDiscountAmount,
+          membership_rate: db.demo?.features.membership(req.user).discountRate,
           hasUsedPromo: false,
           addons: addons || extras || null,
           commission_rate: activeCommRate,
@@ -394,6 +407,14 @@ const bookingController = {
         });
       }
 
+      if (preferredStaffId != null) {
+        const invited = db.demo.features.setStaffChoice(bookingId, preferredStaffId, prebook);
+        const socket = require('../services/socketService');
+        socket.notifyDemoFeaturesChanged(invited);
+        if (prebook) socket.notifyUser(preferredStaffId, {
+          type: 'reservation_requested', title: 'Có lịch đặt trước cần phản hồi', data: { bookingId }
+        });
+      }
       const newBooking = (await BookingModel.getById(bookingId)) || {
         id: bookingId,
         booking_code: booking_code,
@@ -444,7 +465,7 @@ const bookingController = {
       res.status(201).json({
         success: true,
         message: successMsg,
-        data: { ...newBooking, payment_qr: buildBookingVietQr(newBooking, Boolean(db.demo)) }
+        data: { ...newBooking, prebook, payment_qr: prebook ? null : buildBookingVietQr(newBooking, Boolean(db.demo)) }
       });
     } catch (err) {
       next(err);
@@ -556,6 +577,7 @@ const bookingController = {
         package_type: isCareService ? (package_type || 'hourly') : 'hourly',
         discount_code: normalizedPromo,
         voucher_discount: voucherDiscountAmount,
+        membership_rate: db.demo?.features.membership(req.user).discountRate,
         hasUsedPromo: alreadyUsedPromo,
         addons: addons || extras || null,
         commission_rate: activeCommRate,
@@ -643,9 +665,16 @@ const bookingController = {
         return res.status(403).json({ success: false, message: 'Bạn không có quyền xem đơn đặt này.' });
       }
 
+      const staffProfiles = db.demo?.features.bookingStaff(booking, req.user);
       res.json({
         success: true,
-        data: { ...booking, payment_qr: buildBookingVietQr(booking, Boolean(db.demo)) }
+        data: {
+          ...booking,
+          payment_qr: ['waiting', 'declined'].includes(staffProfiles?.prebook?.status)
+            ? null : buildBookingVietQr(booking, Boolean(db.demo)),
+          demo_features: Boolean(db.demo),
+          ...(staffProfiles && { staff_profiles: staffProfiles })
+        }
       });
     } catch (err) {
       next(err);

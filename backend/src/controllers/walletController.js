@@ -42,7 +42,7 @@ const walletController = {
     }
   },
 
-  // 3. Nạp tiền vào ví CleanNova (Chế độ Sandbox phát triển / Cổng thanh toán) (POST /api/wallet/topup)
+  // 3. Nạp tiền vào ví DabClean (Chế độ Sandbox phát triển / Cổng thanh toán) (POST /api/wallet/topup)
   async topupSandbox(req, res, next) {
     try {
       const { amount, idempotency_key, description } = req.body;

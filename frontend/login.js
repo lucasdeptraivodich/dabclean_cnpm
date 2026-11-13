@@ -418,7 +418,7 @@ if (urlParams.get("logout") === "true") {
   showLogin();
 } else {
   // Hiển thị thông báo nếu được chuyển hướng từ việc đặt lịch hoặc chức năng yêu cầu tài khoản
-  const friendlyMsg = urlParams.get("message") || (urlParams.get("redirect") ? "Vui lòng đăng nhập để tiếp tục sử dụng dịch vụ CleanNova" : "");
+  const friendlyMsg = urlParams.get("message") || (urlParams.get("redirect") ? "Vui lòng đăng nhập để tiếp tục sử dụng dịch vụ DabClean" : "");
   if (friendlyMsg) {
     const banner = document.getElementById("login-friendly-banner");
     const bannerText = document.getElementById("login-friendly-banner-text");

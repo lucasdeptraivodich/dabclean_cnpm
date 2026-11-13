@@ -37,7 +37,7 @@ async function loginUser(email, password) {
 
 async function runTests() {
   console.log('====================================================');
-  console.log('🧪 CLEANOVA IN-HOME CARE REDESIGN - TEST SUITE');
+  console.log('🧪 DabClean IN-HOME CARE REDESIGN - TEST SUITE');
   console.log('====================================================\n');
 
   let passed = 0;

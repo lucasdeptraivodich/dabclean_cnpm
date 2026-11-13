@@ -8,6 +8,7 @@
   <link rel="stylesheet" href="app.css">
   <link rel="stylesheet" href="css/realtime-notification.css">
   <script src="api.js"></script>
+  <script defer src="js/staff-directory.js"></script>
   <script src="js/booking-qr.js" defer></script>
   <link rel="stylesheet" href="css/booking-qr.css">
 </head>
@@ -70,6 +71,7 @@
        MAIN CONTENT: CUSTOMER DASHBOARD
        ============================================================ -->
   <main class="page-wrapper">
+    <section id="staff-directory" class="staff-directory-panel" hidden></section>
     <div class="container">
 
       <!-- 1. Welcome Hero Banner -->
@@ -803,8 +805,28 @@
               `;
               const qrSection = document.createElement('section');
               qrSection.className = 'booking-qr-inline';
-              if (window.DabCleanBookingQr.render(b, qrSection)) {
+              const hasPaymentButton = window.DabCleanBookingQr.addPaymentButton(b, qrSection);
+              if (b.demo_features && ['confirmed', 'arrived', 'in_progress', 'completed', 'cancelled'].includes(b.status)) {
+                const chat = document.createElement('a');
+                chat.className = 'booking-qr-primary';
+                chat.href = `demo-features.html?order=${encodeURIComponent(b.id)}`;
+                chat.textContent = ['completed', 'cancelled'].includes(b.status) ? 'Gửi hoặc xem khiếu nại' : 'Nhắn tin / Theo dõi di chuyển';
+                qrSection.append(chat);
+              }
+              if (hasPaymentButton || qrSection.childElementCount) {
                 document.getElementById('modal-body').firstElementChild.after(qrSection);
+              }
+              if (b.staff_profiles) {
+                const staffInfo = document.createElement('section');
+                staffInfo.className = 'staff-directory-panel';
+                window.DabCleanStaffDirectory?.orderProfiles(staffInfo, b.staff_profiles);
+                if (b.staff_profiles.prebook && b.status === 'pending') {
+                  const prebookLink = document.createElement('a');
+                  prebookLink.href = `demo-features.html?order=${encodeURIComponent(b.id)}`;
+                  prebookLink.textContent = 'Theo dõi lịch đặt trước';
+                  staffInfo.append(prebookLink);
+                }
+                if (staffInfo.childElementCount) document.getElementById('modal-body').firstElementChild.after(staffInfo);
               }
               document.getElementById('detail-modal').classList.add('active');
             } catch (err) {

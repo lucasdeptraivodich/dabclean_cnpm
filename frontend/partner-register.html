@@ -118,7 +118,7 @@
             </div>
 
             <!-- Alert thông báo lỗi / trạng thái -->
-            <div id="partner-alert" class="alert alert-error" style="display: none; margin-bottom: 16px;" role="alert"></div>
+            <div id="partner-alert" class="alert alert-error viewport-alert" style="display: none;" role="alert"></div>
 
             <form id="partner-register-form" novalidate autocomplete="off">
               <!-- Họ và tên -->
@@ -497,13 +497,11 @@
 
           formView.style.display = 'none';
           successView.classList.add('active');
-          window.scrollTo({ top: 0, behavior: 'smooth' });
 
         } catch (err) {
           // Hiển thị lỗi backend mà KHÔNG xóa các trường người dùng đã nhập
           alertBox.textContent = err.message || 'Đã có lỗi xảy ra trong quá trình gửi hồ sơ. Vui lòng thử lại.';
           alertBox.style.display = 'block';
-          window.scrollTo({ top: formView.offsetTop - 50, behavior: 'smooth' });
         } finally {
           submitBtn.disabled = false;
           btnText.style.display = 'inline-block';

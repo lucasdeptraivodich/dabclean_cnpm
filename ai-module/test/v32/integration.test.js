@@ -6,6 +6,8 @@ const fs=require('fs');
 const vm=require('vm');
 const {parseHTML}=require('linkedom');
 const {createV32Router}=require('../../src/v32/routes');
+const {createServer}=require('node:http');
+const {once}=require('node:events');
 test('real V3.2 worker: three unknown scores for dark/duplicate photos, no fake zeros',async()=>{
  const app=express();app.use('/api/ai/v3.2',createV32Router());const server=app.listen(0,'127.0.0.1');await new Promise(r=>server.once('listening',r));
  try {const base=`http://127.0.0.1:${server.address().port}/api/ai/v3.2`;const cap=await (await fetch(base+'/capabilities')).json();assert.equal(Object.keys(cap.data.criteria).length,3);
@@ -24,4 +26,73 @@ test('9Router route reports upstream privacy honestly and skips remote inference
  try{const base=`http://127.0.0.1:${server.address().port}/api/ai/v3.2`;const cap=await(await fetch(base+'/capabilities')).json();assert.equal(cap.data.provider,'9router');assert.equal(cap.data.localOnly,false);
  const bytes=await sharp({create:{width:300,height:300,channels:3,background:'black'}}).jpeg().toBuffer();const body=new FormData();body.append('images',new Blob([bytes]),'dark.jpg');const response=await fetch(base+'/analyze',{method:'POST',body});assert.equal(response.status,200);const {data}=await response.json();assert.equal(data.privacy.inference,'9router_upstream');assert.equal(data.privacy.externalImageTransfer,false);assert.equal(data.images[0].metrics.length,3);assert.ok(data.images[0].metrics.every(m=>m.score===null));
  }finally{server.closeAllConnections();await new Promise(r=>server.close(r));if(old===undefined)delete process.env.AI_V32_PROVIDER;else process.env.AI_V32_PROVIDER=old;}
+});
+
+test('distinct usable photos reach 9Router concurrently and duplicates retain their original index', async () => {
+ const oldUrl = process.env.AI_V32_ROUTER_URL;
+ const oldKey = process.env.AI_V32_ROUTER_API_KEY;
+ const pending = [];
+ let analyses = 0;
+ let summaries = 0;
+ const criteria = Object.fromEntries(Object.entries(require('../../src/v32/provider').COMPONENTS).map(([key, components]) =>
+  [key, { observable: true, ambiguous: false, coverage: 'adequate', assessed_components: Object.keys(components),
+   score: 25, evidence: 'Vết bám', location: 'sàn', limitation: 'Vùng nhìn thấy' }]));
+ const overall = { level: 'hoi-ban', reason: 'Có dấu hiệu bẩn nhẹ.' };
+ const send = (res, value) => res.end(JSON.stringify({ choices: [{ finish_reason: 'stop', message: { content: JSON.stringify(value) } }] }));
+ const gateway = createServer(async (req, res) => {
+  let input = '';
+  for await (const chunk of req) input += chunk;
+  const body = JSON.parse(input);
+  if (typeof body.messages[1].content === 'string') {
+   summaries++;
+   send(res, overall);
+   return;
+  }
+  analyses++;
+  pending.push(res);
+  // A sequential implementation cannot complete the first call before the second arrives.
+  if (pending.length === 2) for (const reply of pending) send(reply, { scene: 'room', criteria, overall });
+ });
+ gateway.listen(0, '127.0.0.1');
+ await once(gateway, 'listening');
+ process.env.AI_V32_ROUTER_URL = `http://127.0.0.1:${gateway.address().port}/v1`;
+ process.env.AI_V32_ROUTER_API_KEY = 'integration-test-key';
+ const app = express();
+ app.use('/v3.2', createV32Router());
+ const server = app.listen(0, '127.0.0.1');
+ await once(server, 'listening');
+ try {
+  const images = [];
+  for (let seed of [17, 53]) {
+   const pixels = Buffer.alloc(320 * 240 * 3);
+   for (let i = 0; i < pixels.length; i++) {
+    seed = (seed * 1664525 + 1013904223) >>> 0;
+    pixels[i] = 30 + (seed >>> 24) % 190;
+   }
+   images.push(await sharp(pixels, { raw: { width: 320, height: 240, channels: 3 } }).jpeg().toBuffer());
+  }
+  const form = new FormData();
+  for (const [index, photo] of [images[0], images[1], images[0]].entries()) {
+   form.append('images', new Blob([photo], { type: 'image/jpeg' }), `room-${index}.jpg`);
+  }
+  const response = await fetch(`http://127.0.0.1:${server.address().port}/v3.2/analyze`, {
+   method: 'POST', body: form, signal: AbortSignal.timeout(5000)
+  });
+  assert.equal(response.status, 200);
+  const { data } = await response.json();
+  assert.equal(analyses, 2);
+  assert.equal(summaries, 1);
+  assert.deepEqual(data.images.map(image => image.status), ['estimated', 'estimated', 'duplicate']);
+  assert.equal(data.images[2].duplicateOf, 1);
+  assert.equal(data.overall.level, 'hoi-ban');
+ } finally {
+  for (const host of [server, gateway]) {
+   host.closeAllConnections();
+   await new Promise(resolve => host.close(resolve));
+  }
+  for (const [key, value] of [['AI_V32_ROUTER_URL', oldUrl], ['AI_V32_ROUTER_API_KEY', oldKey]]) {
+   if (value === undefined) delete process.env[key];
+   else process.env[key] = value;
+  }
+ }
 });

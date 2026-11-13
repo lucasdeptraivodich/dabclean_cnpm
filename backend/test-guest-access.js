@@ -1,5 +1,5 @@
 // ============================================================
-// Test Suite: Khách vãng lai & Phân quyền bảo mật CleanNova
+// Test Suite: Khách vãng lai & Phân quyền bảo mật DabClean
 // ============================================================
 const http = require('http');
 
@@ -45,7 +45,7 @@ async function runTests() {
       path: '/',
       method: 'GET'
     });
-    assert(resHome.statusCode === 200 && typeof resHome.data === 'string' && (resHome.data.includes('DabClean') || resHome.data.includes('Cleanova')),
+    assert(resHome.statusCode === 200 && typeof resHome.data === 'string' && resHome.data.includes('DabClean'),
       'Test 1: Mở website gốc (/) phục vụ thẳng trang chủ trangchu.html');
 
     // 2. Kiểm tra truy cập trang /trangchu.html
@@ -122,7 +122,7 @@ async function runTests() {
       }
     }, {
       service_id: 1,
-      booking_date: '2026-10-25',
+      booking_date: new Date(Date.now() + 86400000).toISOString().slice(0, 10),
       booking_time: '09:00',
       area_size: 'medium',
       frequency: 'once',

@@ -1,5 +1,5 @@
 // ============================================================
-// TEST SUITE: CleanNova Wallet & Vouchers System Verification
+// TEST SUITE: DabClean Wallet & Vouchers System Verification
 // ============================================================
 const assert = require('assert');
 
@@ -122,7 +122,7 @@ async function runTests() {
       frequency: 'once',
       address: 'Số 99 Phố Trần Duy Hưng, Cầu Giấy, Hà Nội',
       phone: '0987654321',
-      notes: 'Thanh toán trực tiếp qua Ví CleanNova kiểm thử',
+      notes: 'Thanh toán trực tiếp qua Ví DabClean kiểm thử',
       payment_method: 'wallet',
       discount_code: 'CLEAN50K',
       addons: ['disinfect']
@@ -149,7 +149,7 @@ async function runTests() {
       'Authorization': `Bearer ${token}`
     },
     body: JSON.stringify({
-      reason: 'Tôi có việc bận đột xuất muốn hoàn tiền vào ví CleanNova để đặt lại sau'
+      reason: 'Tôi có việc bận đột xuất muốn hoàn tiền vào ví DabClean để đặt lại sau'
     })
   });
   const cancelData = await cancelRes.json();
@@ -190,7 +190,7 @@ async function runTests() {
   console.log(` Admin sees ${adminWallets.length} total user wallets across the system.`);
 
   console.log('\n============================================================');
-  console.log(' ALL CLEANNOVA WALLET & VOUCHER TESTS PASSED 100%! ');
+  console.log(' ALL DabClean WALLET & VOUCHER TESTS PASSED 100%! ');
   console.log('============================================================');
 }
 

@@ -15,6 +15,7 @@ app.use(cors({
   allowedHeaders: ['Content-Type', 'Authorization', 'X-Requested-With']
 }));
 
+app.post('/api/demo/features/bookings/:id/dispute', express.json({ limit: '1500kb' }));
 app.use(express.json());
 app.use(express.urlencoded({ extended: true }));
 
@@ -43,6 +44,7 @@ app.use('/api/partner', partnerRoutes);
 app.use('/api/ai', aiRoutes);
 app.use('/api/wallet', walletRoutes);
 app.use('/api/vouchers', voucherRoutes);
+app.use('/api/demo/features', require('./routes/demoFeatureRoutes'));
 
 // Endpoint kiểm tra sức khỏe hệ thống (Health Check)
 app.get('/api/health', (req, res) => {

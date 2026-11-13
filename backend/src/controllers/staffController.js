@@ -130,6 +130,7 @@ const staffController = {
         success: true,
         stats,
         count: tasks.length,
+        demo_features: Boolean(db.demo),
         data: tasks
       });
     } catch (err) {
@@ -486,6 +487,7 @@ const staffController = {
       if (!isSameStatus && status === 'completed' && booking.status !== 'in_progress') {
         return res.status(409).json({ success: false, message: 'Chỉ có thể hoàn thành công việc đang thực hiện.' });
       }
+      if (!isSameStatus && status === 'completed' && db.demo) db.demo.features.enforceCompletionSignature(booking);
       if (booking.status === 'completed' && status !== 'completed') {
         return res.status(409).json({ success: false, message: 'Đơn hàng đã hoàn thành và không thể đổi trạng thái.' });
       }
@@ -645,6 +647,9 @@ const staffController = {
 
       let settlementResult = null;
       if (status === 'completed' && booking.status !== 'completed') {
+        db.demo?.features.markCompletion(taskId);
+      }
+      if (status === 'completed' && booking.status !== 'completed' && !db.demo?.features.settlementHeld(taskId)) {
         try {
           settlementResult = await WalletModel.settleBookingCommissionAndWage({
             bookingId: taskId,
@@ -696,6 +701,9 @@ const staffController = {
         } catch (socketErr) {}
       }
 
+      if (db.demo && status === 'completed' && !isSameStatus) {
+        require('../services/socketService').notifyDemoFeaturesChanged(db.demo.promotePrebook(req.user.id));
+      }
       res.json({
         success: true,
         message: `Đã cập nhật trạng thái công việc #${booking.booking_code} thành "${status}".`,

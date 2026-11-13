@@ -54,7 +54,7 @@ async function setup(response, geo, secure = true) {
   assert.ok(denied.dialog.textContent.includes('bị chặn'));
   assert.equal(new URL(denied.dialog.querySelector('a').getAttribute('href')).searchParams.has('origin'), false);
   const lan = await setup({ success: true, data: { address: '25 Duy Tân' } }, geo, false);
-  assert.ok(lan.dialog.textContent.includes('HTTP'));
+  assert.doesNotMatch(lan.dialog.textContent, /Trình duyệt chặn GPS|GPS trực tiếp trên web/);
   const gpsLink = [...lan.dialog.querySelectorAll('a')].find(a => a.textContent.includes('GPS trong Google Maps'));
   assert.ok(gpsLink, 'LAN HTTP must offer GPS on Google Maps HTTPS');
   const gpsUrl = new URL(gpsLink.getAttribute('href'));

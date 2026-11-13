@@ -1,5 +1,7 @@
 # VietQR đặt lịch BIDV — 04/11/2026
 
+Cập nhật 12/11/2026. Hộp xác nhận hiển thị mẫu VietQR BIDV `print.svg` trực tiếp, kể cả trong demo. Demo hiển thị cảnh báo không chuyển tiền thật. Phần bên dưới ghi lại việc triển khai và kiểm thử VietQR ban đầu.
+
 ## Thay đổi
 
 Tích hợp theo yêu cầu tài khoản BIDV 8888444265. Sau khi POST /api/bookings thành công, nếu phương thức bank_transfer thì trang booking.html và booking-care.html mở dialog VietQR. Tài khoản/ngân hàng được khai báo tập trung trong service backend; tiền lấy từ booking.total_price đã tính và lưu ở backend, không lấy từ giá client gửi hoặc DOM tổng tiền. Nội dung chuyển tiền dùng mã đơn đã chuẩn hóa, tối đa 50 ký tự theo đặc tả Quick Link.

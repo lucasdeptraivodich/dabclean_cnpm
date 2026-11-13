@@ -2,7 +2,7 @@
 
 ## Hành vi
 
-Chạy `node server.js` hoặc `npm start` trong `backend/`. Entry point chọn cấu hình demo mặc định khi môi trường chưa đặt hoặc là development và chưa đặt `DEMO_MODE`; mặc định lắng nghe LAN ở cổng 5000. `DEMO_MODE=false` luôn được tôn trọng để chọn luồng MySQL. Production và staging không tự bật demo; `DEMO_MODE=true` ở môi trường ngoài development/test bị từ chối trước khi tạo pool. `npm run demo` vẫn là lệnh bật demo rõ ràng, mặc định localhost. Khởi động demo bỏ hoàn toàn kết nối/migration MySQL.
+Chạy `npm run demo` trong `backend/` để bật demo, mặc định nghe cổng 5000 qua LAN. Có thể đặt `HOST=127.0.0.1` để giới hạn trên máy này. `npm start` và `node server.js` sử dụng MySQL trừ khi bật `DEMO_MODE=true` trong development/test. Khởi động demo bỏ qua kết nối và migration MySQL.
 
 Ví khách và tín dụng có 1.000.000 VND giả lập ban đầu, ví thu nhập 0 VND. Toàn bộ tiền và giao dịch có nhãn demo, không qua cổng thanh toán. Thao tác validation + trừ ví + gán nhân viên chạy đồng bộ trong một lượt event loop nên các request không thể chen giữa. Retry nhận ca và quyết toán không thu/trả tiền lần hai. Đây không phải bằng chứng về khóa/transaction MySQL.
 

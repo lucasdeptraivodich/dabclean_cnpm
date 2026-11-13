@@ -74,9 +74,7 @@
         locate.rel = 'noopener noreferrer';
       }
       locate.className = 'btn btn-secondary';
-      const gpsStatus = element('p', secure
-        ? 'Bạn có thể mở Google Maps để chọn điểm xuất phát nếu không bật GPS.'
-        : 'Trình duyệt chặn GPS trên địa chỉ LAN dùng HTTP. Bấm “Dùng GPS trong Google Maps”, cho phép vị trí trong Google Maps và chọn Vị trí của bạn. GPS trực tiếp trên web cần HTTPS hoặc localhost.');
+      const gpsStatus = element('p', 'Bạn có thể mở Google Maps để chọn điểm xuất phát nếu không bật GPS.');
       gpsStatus.setAttribute('role', 'status');
       locate.addEventListener('click', () => {
         if (!secure) return; // The HTTPS Maps link handles location on LAN HTTP.
@@ -110,7 +108,8 @@
           gpsStatus.textContent = 'Không lấy được GPS. ' + (reasons[error && error.code] || 'Không xác định được vị trí trên thiết bị này.') + ' Bạn vẫn có thể chọn điểm xuất phát trong Google Maps.';
         }, { enableHighAccuracy: true, timeout: 15000, maximumAge: 0 });
       });
-      content.append(hint, map, locate, directions, gpsStatus);
+      content.append(hint, map, locate, directions);
+      if (secure) content.append(gpsStatus);
     } catch (err) {
       if (current === generation) status.textContent = err.message || 'Không tải được bản đồ. Vui lòng thử lại.';
     } finally { button.disabled = false; }

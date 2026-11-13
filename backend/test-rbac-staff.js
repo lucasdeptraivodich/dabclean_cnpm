@@ -1,6 +1,6 @@
 /**
  * ============================================================
- * CLEANOVA RBAC & STAFF SUITE TEST (10 Kiểm Thử Bắt Buộc)
+ * DabClean RBAC & STAFF SUITE TEST (10 Kiểm Thử Bắt Buộc)
  * ============================================================
  */
 const http = require('http');
@@ -42,7 +42,7 @@ function request(path, options = {}) {
 }
 
 async function runTests() {
-  console.log('🚀 Bắt đầu chạy bộ kiểm thử toàn diện RBAC, Admin & Staff Cleanova...\n');
+  console.log('🚀 Bắt đầu chạy bộ kiểm thử toàn diện RBAC, Admin & Staff DabClean...\n');
   let passed = 0;
   let total = 10;
 

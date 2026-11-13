@@ -18,3 +18,30 @@ test('multiple images overview is requested from the model with all three criter
  const result=await require('../../src/v32/routerProvider').summarize([{metrics:[{key:'surface_clutter',score:0},{key:'dust_grime',score:15},{key:'stains_mold',score:null}]}]);assert.equal(result.level,'hoi-ban');assert.equal(result.source,'model');
  }finally{global.fetch=oldFetch;}
 });
+test('reasoning defaults to low for the DabClean model and can preserve gateway defaults', async () => {
+ const originalFetch = global.fetch;
+ const oldModel = process.env.AI_V32_ROUTER_MODEL;
+ const oldEffort = process.env.AI_V32_ROUTER_REASONING_EFFORT;
+ const efforts = [];
+ try {
+  global.fetch = async (_url, options) => {
+   efforts.push(JSON.parse(options.body).reasoning_effort);
+   return new Response(JSON.stringify({ choices: [{ finish_reason: 'stop', message: { content: JSON.stringify(raw()) } }] }));
+  };
+  delete process.env.AI_V32_ROUTER_REASONING_EFFORT;
+  process.env.AI_V32_ROUTER_MODEL = 'cx/gpt-6.1-sol';
+  await analyze(Buffer.from('image'));
+  process.env.AI_V32_ROUTER_REASONING_EFFORT = 'default';
+  await analyze(Buffer.from('image'));
+  delete process.env.AI_V32_ROUTER_REASONING_EFFORT;
+  process.env.AI_V32_ROUTER_MODEL = 'custom-vision-model';
+  await analyze(Buffer.from('image'));
+  assert.deepEqual(efforts, ['low', undefined, undefined]);
+ } finally {
+  global.fetch = originalFetch;
+  for (const [key, value] of [['AI_V32_ROUTER_MODEL', oldModel], ['AI_V32_ROUTER_REASONING_EFFORT', oldEffort]]) {
+   if (value === undefined) delete process.env[key];
+   else process.env[key] = value;
+  }
+ }
+});

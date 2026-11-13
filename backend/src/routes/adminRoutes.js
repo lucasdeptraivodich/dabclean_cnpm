@@ -25,7 +25,7 @@ router.put('/bookings/:id/confirm-quote', adminController.confirmQuote);
 router.get('/post-construction/config', adminController.getPostConstructionConfig);
 router.put('/post-construction/config', adminController.updatePostConstructionConfig);
 
-// 2c. Cấu hình tỷ lệ chiết khấu thù lao CleanNova
+// 2c. Cấu hình tỷ lệ chiết khấu thù lao DabClean
 router.get('/config/commission', adminController.getCommissionConfig);
 router.put('/config/commission', adminController.updateCommissionConfig);
 

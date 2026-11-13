@@ -9,6 +9,7 @@
   <link rel="stylesheet" href="app.css">
   <link rel="stylesheet" href="css/realtime-notification.css">
   <script src="api.js"></script>
+  <script defer src="js/staff-directory.js"></script>
   <script src="js/booking-qr.js" defer></script>
   <link rel="stylesheet" href="css/booking-qr.css">
   <script src="js/ai-v3.js"></script>
@@ -235,6 +236,7 @@
                 <!-- Rendered dynamically via JS -->
               </div>
 
+              <section id="staff-choice" class="staff-directory-panel" hidden></section>
               <!-- Chọn Quy mô diện tích -->
               <div class="form-group" style="margin-top: var(--space-xl);">
                 <label class="form-label" style="font-weight: 700;">Quy mô diện tích không gian</label>
@@ -537,6 +539,9 @@
               </div>
 
               <!-- Giảm giá Voucher -->
+              <div class="summary-row discount" id="summary-member-discount-row" hidden>
+                <span>Ưu đãi thành viên</span><span id="summary-member-discount"></span>
+              </div>
               <div class="summary-row discount" id="summary-voucher-discount-row" style="display: none;">
                 <span>Ưu đãi mã giảm giá:</span>
                 <strong id="summary-voucher-discount">-0 đ</strong>
@@ -986,7 +991,7 @@
 
       function showAiError(msg) {
         if (aiErrorBox) {
-          aiErrorBox.textContent = 'Thông báo AI V3: ' + msg;
+          aiErrorBox.textContent = msg;
           aiErrorBox.style.display = 'block';
           aiErrorBox.scrollIntoView({ behavior: 'smooth', block: 'nearest' });
         }
@@ -1013,7 +1018,7 @@
         if (btnAiReanalyze) btnAiReanalyze.disabled = true;
 
         if (aiProgressBar) { aiProgressBar.style.width = '100%'; aiProgressBar.classList.add('v3-pending'); }
-        if (aiLoadingStatus) aiLoadingStatus.textContent = `Đang xử lý ${selectedFiles.length} ảnh qua 9Router...`;
+        if (aiLoadingStatus) aiLoadingStatus.textContent = `Đang xử lý ${selectedFiles.length} ảnh...`;
         if (aiLoadingSubstatus) aiLoadingSubstatus.textContent = 'Không có phần trăm tiến trình ước đoán. Kết quả có thể yêu cầu chụp bổ sung.';
         const filesForAnalysis = selectedFiles.slice();
         const formData = new FormData();
@@ -1034,14 +1039,8 @@
           aiResultPanel.scrollIntoView({ behavior: 'smooth', block: 'nearest' });
           showToast('success', `Đã xử lý ${filesForAnalysis.length} ảnh; xem nhận định và giới hạn.`);
         } catch (err) {
-
           console.error('[DabClean AI Error]:', err);
-
-          let errorMsg = err.message || 'Không thể kết nối đến máy chủ AI.';
-          if (errorMsg.includes('Failed to fetch') || errorMsg.includes('NetworkError') || err.name === 'TypeError') {
-            errorMsg = 'Không thể kết nối đến máy chủ AI (Lỗi mạng hoặc server chưa khởi động). Vui lòng đảm bảo backend đang chạy tại cổng 5000 hoặc 5100. Bạn vẫn có thể tự chọn gói dịch vụ ở mục bên dưới.';
-          }
-          showAiError(errorMsg);
+          showAiError('AI chưa hoạt động');
         } finally {
           if (aiProgressBar) aiProgressBar.classList.remove('v3-pending');
           setTimeout(() => {
@@ -1308,6 +1307,7 @@
       // ============================================================
       // D. CẬP NHẬT TÓM TẮT ĐƠN HÀNG THỜI GIAN THỰC (STICKY SIDEBAR)
       // ============================================================
+      let memberRate = 0;
       function updateSummary() {
         const select = document.getElementById('booking-service');
         const selectedId = select ? select.value : null;
@@ -1359,7 +1359,14 @@
         const freqDiscPercent = frequencyDiscounts[selectedFrequency] || 0;
         const freqDiscountVal = subtotal * freqDiscPercent;
         const freqRow = document.getElementById('summary-freq-discount-row');
-        if (freqDiscountVal > 0) {
+        const memberDiscountVal = promoApplied ? 0 : subtotal * memberRate;
+        const memberRow = document.getElementById('summary-member-discount-row');
+        const showMember = memberDiscountVal > freqDiscountVal;
+        memberRow.hidden = !showMember;
+        memberRow.style.display = showMember ? 'flex' : 'none';
+        if (showMember) document.getElementById('summary-member-discount').textContent =
+          `-${Math.round(memberDiscountVal).toLocaleString('vi-VN')} đ (${Math.round(memberRate * 100)}%)`;
+        if (freqDiscountVal > 0 && !showMember && (!promoApplied || freqDiscountVal >= promoDiscountAmount)) {
           freqRow.style.display = 'flex';
           document.getElementById('summary-freq-discount').textContent = `-${Math.round(freqDiscountVal).toLocaleString('vi-VN')} đ (${Math.round(freqDiscPercent * 100)}%)`;
         } else {
@@ -1371,15 +1378,15 @@
         const voucherRow = document.getElementById('summary-voucher-discount-row');
         if (promoApplied && promoDiscountAmount > 0) {
           voucherDiscountVal = promoDiscountAmount;
-          if (voucherRow) {
+          if (voucherRow && voucherDiscountVal > freqDiscountVal) {
             voucherRow.style.display = 'flex';
             document.getElementById('summary-voucher-discount').textContent = `-${Math.round(voucherDiscountVal).toLocaleString('vi-VN')} đ`;
-          }
+          } else if (voucherRow) voucherRow.style.display = 'none';
         } else {
           if (voucherRow) voucherRow.style.display = 'none';
         }
 
-        const finalTotal = Math.max(subtotal - freqDiscountVal - voucherDiscountVal, 50000);
+        const finalTotal = Math.max(subtotal - Math.max(freqDiscountVal, voucherDiscountVal, memberDiscountVal), 50000);
         document.getElementById('summary-total').textContent = `${Math.round(finalTotal).toLocaleString('vi-VN')} đ`;
         if (typeof updateWalletStatusMsg === 'function') {
           updateWalletStatusMsg();
@@ -1457,6 +1464,7 @@
           addons: activeAddonKeys,
           discount_code: promoCode || (promoApplied ? 'DABCLEAN20' : null),
           payment_method: paymentMethodChosen,
+          preferred_staff_id: window.DabCleanStaffDirectory?.preferredId(),
           ai_analysis: currentAiData ? {
             score: currentAiData.score,
             rating_1to5: currentAiData.rating1to5 || Math.min(5, Math.max(1, Math.ceil(currentAiData.score / 20))),
@@ -1469,7 +1477,29 @@
         };
 
         try {
-          const res = await window.DabCleanAPI.bookings.create(bookingData);
+          const directory = window.DabCleanStaffDirectory;
+          const mode = await directory?.choosePrebooking(bookingData.preferred_staff_id);
+          if (mode === null) {
+            btn.classList.remove('btn-loading');
+            btn.disabled = false;
+            return;
+          }
+          let res;
+          try {
+            res = await window.DabCleanAPI.bookings.create({ ...bookingData, prebook: mode === true });
+          } catch (err) {
+            if (err.data?.code !== 'DEMO_STAFF_BUSY') throw err;
+            if (await directory.choosePrebooking(bookingData.preferred_staff_id, true) !== true) {
+              btn.classList.remove('btn-loading');
+              btn.disabled = false;
+              return;
+            }
+            res = await window.DabCleanAPI.bookings.create({ ...bookingData, prebook: true });
+          }
+          if (res.data?.prebook) {
+            window.location.href = `demo-features.html?order=${encodeURIComponent(res.data.id)}`;
+            return;
+          }
           if (res.data?.payment_method === 'bank_transfer' && window.DabCleanBookingQr.open(res.data)) return;
           const bookingCode = res?.data?.booking_code || res?.data?.bookingCode || (res?.booking_code) || 'Đã ghi nhận';
           document.getElementById('modal-booking-code').textContent = bookingCode;
@@ -1492,6 +1522,15 @@
         setTimeout(() => t.remove(), 3500);
       }
 
+      const token = window.DabCleanAPI.auth.getToken();
+      if (token && window.DabCleanAPI.auth.getUser()?.role === 'customer') {
+        fetch(`${window.DabCleanAPI.BASE_URL}/demo/features/membership`, { headers: { Authorization: `Bearer ${token}` } })
+          .then(response => response.ok ? response.json() : null)
+          .then(result => {
+            memberRate = result?.data?.discountRate || 0;
+            updateSummary();
+          }).catch(() => {});
+      }
       await loadServices();
     });
   </script>

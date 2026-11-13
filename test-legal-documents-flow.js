@@ -49,6 +49,7 @@ function request(options, body = null) {
 }
 
 async function run() {
+  await db.initDatabase();
   console.log('===============================================================');
   console.log('🧪 BẮT ĐẦU KIỂM THỬ: ĐIỀU KHOẢN ĐỐI TÁC & CHÍNH SÁCH BẢO MẬT');
   console.log('===============================================================\n');

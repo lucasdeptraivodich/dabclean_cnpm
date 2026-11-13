@@ -76,11 +76,7 @@ async function runAll14BugTests() {
   console.log('   DABCLEAN - VERIFYING ALL 14 BACKEND BUGS');
   console.log('====================================================\n');
 
-  // Đợi MySQL kết nối
-  for (let i = 0; i < 30; i++) {
-    if (db.isMySQLConnected && db.isMySQLConnected()) break;
-    await new Promise(r => setTimeout(r, 200));
-  }
+  await db.initDatabase();
 
   // Login tokens
   const adminLogin = await apiRequest('POST', '/api/auth/login', {}, {

@@ -16,7 +16,7 @@ const checks = [
   { name: '2. Elderly care service (90.000 / giờ, min 2h)', pass: html.includes('Chăm sóc người cao tuổi') && html.includes('90.000') && html.includes('Tối thiểu: 2 giờ') },
   { name: '2. Patient care service (120.000 / giờ, min 2h)', pass: html.includes('Chăm sóc người bệnh tại nhà') && html.includes('120.000') && html.includes('Tối thiểu: 2 giờ') },
   { name: '2. Service Detail button on cards', pass: html.includes('btn-service-detail') },
-  { name: '3. Section Vì sao chọn CleanNova 5 points', pass: [1,2,3,4,5].every(i => html.includes(`why_point_${i}_title`)) },
+  { name: '3. Section Vì sao chọn DabClean 5 points', pass: [1,2,3,4,5].every(i => html.includes(`why_point_${i}_title`)) },
   { name: '4. Section 4 Bước đặt dịch vụ', pass: [1,2,3,4].every(i => html.includes(`workflow_step_${i}_title`)) },
   { name: '5. Section Bảng giá dịch vụ with tabs', pass: html.includes('id="pricing-table"') && html.includes('id="pricing-category-tabs"') },
   { name: '5. Pricing error state container', pass: html.includes('id="pricing-error-state"') },
@@ -30,7 +30,7 @@ const checks = [
     'Tiền dịch vụ được thanh toán như thế nào?',
     'Nhân viên chăm sóc có thể thực hiện những công việc gì?'
   ].every(q => html.includes(q)) },
-  { name: '8. Footer contact info real (1900-8888, contact@dabclean.vn, 123 Đường Cầu Giấy)', pass: html.includes('1900-8888') && (html.includes('contact@dabclean.vn') || html.includes('contact@cleanova.vn')) && html.includes('123 Đường Cầu Giấy') },
+  { name: '8. Footer contact info real (1900-8888, contact@dabclean.vn, 123 Đường Cầu Giấy)', pass: html.includes('1900-8888') && html.includes('contact@dabclean.vn') && html.includes('123 Đường Cầu Giấy') },
   { name: 'Service Details Modal Dialog in HTML', pass: html.includes('id="service-modal"') && html.includes('id="modal-service-price"') },
   { name: 'CSS tokens and rules present in home.css', pass: css.includes('.badge-category-care') && css.includes('.service-modal-overlay') && css.includes('.scope-disclaimer-callout') },
   { name: 'JS initServicesAndPricing connects to API', pass: main.includes('initServicesAndPricing') && main.includes('/api/services') },

@@ -17,12 +17,16 @@ function parseCompletion(json){
 async function request(messages){
   const model=process.env.AI_V32_ROUTER_MODEL||'cx/gpt-6.1-sol';
   if(!model.trim()||model.length>160||/[\u0000-\u001f]/.test(model))throw failure(503,'ROUTER_CONFIG','Tên model 9Router không hợp lệ.');
+  const effort = process.env.AI_V32_ROUTER_REASONING_EFFORT || (model === 'cx/gpt-6.1-sol' ? 'low' : 'default');
+  if (!['low', 'default'].includes(effort)) throw failure(503, 'ROUTER_CONFIG', 'Mức suy luận 9Router phải là low hoặc default.');
+  const payload = { model, stream: false, max_completion_tokens: 2400, messages };
+  if (effort === 'low') payload.reasoning_effort = effort;
   const headers={'Content-Type':'application/json'};
   const key=process.env.AI_V32_ROUTER_API_KEY;
   if(key){if(/[\r\n]/.test(key))throw failure(503,'ROUTER_CONFIG','Khóa 9Router không hợp lệ.');headers.Authorization='Bearer '+key;}
   let response;
   try{response=await fetch(endpoint(),{method:'POST',redirect:'error',signal:AbortSignal.timeout(120000),headers,
-    body:JSON.stringify({model,stream:false,max_completion_tokens:2400,messages})});
+    body:JSON.stringify(payload)});
   }catch(err){throw failure(err.name==='TimeoutError'||err.name==='AbortError'?504:503,'ROUTER_UNAVAILABLE','Không kết nối được 9Router hoặc model phản hồi quá thời gian.');}
   if(!response.ok){await response.body?.cancel().catch(()=>{});
     if([401,403].includes(response.status))throw failure(503,'ROUTER_AUTH_REQUIRED','9Router yêu cầu API key hợp lệ. Cấu hình AI_V32_ROUTER_API_KEY ở backend.');

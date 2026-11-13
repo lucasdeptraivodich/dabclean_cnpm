@@ -92,3 +92,7 @@ File sửa trong cả hai bản C/D: frontend/booking.html, frontend/js/ai-v3.js
 Scanner đã được mount trực tiếp trong Express backend. Sau bước cài dependency hai package, chỉ cần `cd backend` rồi `node server.js`; không spawn tiến trình AI riêng, không phụ thuộc cổng 5100. Backend startup hiện in đường dẫn scanner/API và nhắc yêu cầu 9Router đang hoạt động. `backend/.env.example` có cấu hình gateway/model; `npm run test:ai` chạy test thật entry point backend cùng gateway giả lập loopback, xác minh request ảnh, ba điểm, tổng quan model và không áp phụ phí. Test không khởi động server ai-module hoặc dùng cổng 5100, đã PASS. Không phải test độ chính xác model hoặc MySQL.
 
 File bổ sung cho yêu cầu này: backend/server.js, backend/package.json, backend/.env.example, backend/test-ai-startup.js, README.md và tài liệu này. Không migration hoặc dependency mới.
+
+## Độ trễ qua 9Router
+
+Với model mặc định `cx/gpt-6.1-sol`, backend gửi `reasoning_effort=low`. Đặt `AI_V32_ROUTER_REASONING_EFFORT=default` để dùng mức suy luận mặc định của gateway. Các model khác mặc định dùng cấu hình gateway. Mỗi lượt phân tích gửi tối đa ba ảnh hợp lệ đồng thời, sau đó tổng hợp nếu có nhiều ảnh đánh giá được.

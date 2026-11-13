@@ -295,7 +295,7 @@
       }
     },
 
-    // Module Ví CleanNova (Ví điện tử & Lịch sử giao dịch sổ cái)
+    // Module Ví DabClean (Ví điện tử & Lịch sử giao dịch sổ cái)
     wallet: {
       async getMyWallet() {
         return await request('/wallet/my');
@@ -347,7 +347,7 @@
         return await request('/wallet/staff/summary');
       },
 
-      // Hai ví nhân viên CleanNova: Ví tín dụng & Ví thu nhập
+      // Hai ví nhân viên DabClean: Ví tín dụng & Ví thu nhập
       async getStaffWallets() {
         return await request('/wallet/staff/wallets');
       },
@@ -407,12 +407,12 @@
     // Module Sổ địa chỉ khách hàng (Address Book)
     addresses: {
       getStorageKey() {
-        const user = (window.DabCleanAPI || window.CleanovaAPI).auth.getUser();
+        const user = window.DabCleanAPI.auth.getUser();
         return user ? `dabclean_addresses_${user.id}` : `dabclean_addresses_guest`;
       },
 
       getAll() {
-        const user = (window.DabCleanAPI || window.CleanovaAPI).auth.getUser();
+        const user = window.DabCleanAPI.auth.getUser();
         const defaultList = [
           {
             id: 'addr_1',
@@ -479,7 +479,7 @@
     // Module Dịch vụ yêu thích (Favorites)
     favorites: {
       getStorageKey() {
-        const user = (window.DabCleanAPI || window.CleanovaAPI).auth.getUser();
+        const user = window.DabCleanAPI.auth.getUser();
         return user ? `dabclean_favs_${user.id}` : `dabclean_favs_guest`;
       },
 
@@ -768,7 +768,7 @@
       },
 
       async getTaskPhoto(imagePath) {
-        const token = (window.DabCleanAPI || window.CleanovaAPI).auth.getToken();
+        const token = window.DabCleanAPI.auth.getToken();
         const response = await fetch(`${API_BASE_URL}${imagePath}`, {
           headers: token ? { Authorization: `Bearer ${token}` } : {}
         });
@@ -836,7 +836,7 @@
   };
 
   function syncGlobalHeader() {
-    const api = window.DabCleanAPI || window.CleanovaAPI;
+    const api = window.DabCleanAPI;
     if (!api || !api.auth) return;
 
     const user = api.auth.getUser();
@@ -985,7 +985,3 @@
 
   window.DabCleanAPI_syncHeader = syncGlobalHeader;
 })();
-
-
-// Backward compatibility alias for DabClean
-window.DabCleanAPI = window.CleanovaAPI;

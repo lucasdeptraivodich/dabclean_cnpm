@@ -1,5 +1,5 @@
 // ============================================================
-// DABCLEAN BACKEND - Database Configuration (MySQL Pool + Graceful Fallback)
+// DABCLEAN BACKEND - Database Configuration (MySQL Pool or Explicit Demo)
 // ============================================================
 const mysql = require('mysql2/promise');
 const path = require('path');
@@ -24,8 +24,7 @@ const dbConfig = {
 };
 
 // ------------------------------------------------------------
-// Kho dữ liệu bộ nhớ cục bộ (In-Memory Database Fallback)
-// Dùng khi máy tính chưa khởi động MySQL / XAMPP để web không bị crash
+// Dữ liệu giả lập cho chế độ demo
 // ------------------------------------------------------------
 const inMemoryData = {
   users: [
@@ -462,9 +461,9 @@ inMemoryData.system_configs = [
     config_key: 'staff_commission_rate',
     config_value: JSON.stringify({
       rate: 0.20,
-      description: 'Tỷ lệ chiết khấu CleanNova mặc định khấu trừ từ tiền công nhân viên (20%)'
+      description: 'Tỷ lệ chiết khấu DabClean mặc định khấu trừ từ tiền công nhân viên (20%)'
     }),
-    description: 'Tỷ lệ chiết khấu CleanNova khấu trừ từ tiền công nhân viên',
+    description: 'Tỷ lệ chiết khấu DabClean khấu trừ từ tiền công nhân viên',
     updated_by: null,
     updated_at: new Date('2026-01-01T00:00:00Z')
   }
@@ -836,10 +835,10 @@ async function initDatabase() {
       await connection.query("ALTER TABLE bookings ADD COLUMN staff_wage DECIMAL(12, 2) NOT NULL DEFAULT 0.00 COMMENT 'Tiền công chi trả cho nhân viên'");
     }
     if (!existingBCols.has('commission_rate')) {
-      await connection.query("ALTER TABLE bookings ADD COLUMN commission_rate DECIMAL(5, 4) NOT NULL DEFAULT 0.2000 COMMENT 'Tỷ lệ chiết khấu CleanNova'");
+      await connection.query("ALTER TABLE bookings ADD COLUMN commission_rate DECIMAL(5, 4) NOT NULL DEFAULT 0.2000 COMMENT 'Tỷ lệ chiết khấu DabClean'");
     }
     if (!existingBCols.has('platform_commission')) {
-      await connection.query("ALTER TABLE bookings ADD COLUMN platform_commission DECIMAL(12, 2) NOT NULL DEFAULT 0.00 COMMENT 'Khoản chiết khấu CleanNova'");
+      await connection.query("ALTER TABLE bookings ADD COLUMN platform_commission DECIMAL(12, 2) NOT NULL DEFAULT 0.00 COMMENT 'Khoản chiết khấu DabClean'");
     }
     if (!existingBCols.has('staff_net_wage')) {
       await connection.query("ALTER TABLE bookings ADD COLUMN staff_net_wage DECIMAL(12, 2) NOT NULL DEFAULT 0.00 COMMENT 'Tiền công thực nhận của nhân viên'");
@@ -968,7 +967,7 @@ async function initDatabase() {
           standard_price: 450000,
           staff_wage_daily: 320000,
           includes_equipment: true,
-          description: 'Mức giá tham khảo bao gồm máy móc và hóa chất cơ bản theo chính sách CleanNova'
+          description: 'Mức giá tham khảo bao gồm máy móc và hóa chất cơ bản theo chính sách DabClean'
         })]
       );
     }
@@ -1046,7 +1045,7 @@ async function initDatabase() {
     }
 
     // ------------------------------------------------------------
-    // Migration: Hệ thống Ví điện tử CleanNova (Wallets & Immutable Ledger)
+    // Migration: Hệ thống Ví điện tử DabClean (Wallets & Immutable Ledger)
     // ------------------------------------------------------------
     await connection.query(`
       CREATE TABLE IF NOT EXISTS wallets (
@@ -1094,7 +1093,7 @@ async function initDatabase() {
     `);
 
     // ------------------------------------------------------------
-    // Migration: Hệ thống Hai Ví Nhân Viên CleanNova (Credit Wallet & Earnings Wallet)
+    // Migration: Hệ thống Hai Ví Nhân Viên DabClean (Credit Wallet & Earnings Wallet)
     // ------------------------------------------------------------
     const [wCols] = await connection.query(`
       SELECT COLUMN_NAME FROM INFORMATION_SCHEMA.COLUMNS
@@ -1153,10 +1152,15 @@ async function initDatabase() {
       `, [st.id]);
     }
 
+    const [[walletTransactionId]] = await connection.query(`
+      SELECT DATA_TYPE FROM INFORMATION_SCHEMA.COLUMNS
+      WHERE TABLE_SCHEMA = DATABASE() AND TABLE_NAME = 'wallet_transactions' AND COLUMN_NAME = 'id'
+    `);
+    const ledgerTransactionType = walletTransactionId.DATA_TYPE === 'bigint' ? 'BIGINT' : 'INT';
     await connection.query(`
       CREATE TABLE IF NOT EXISTS wallet_ledger_entries (
         id INT AUTO_INCREMENT PRIMARY KEY,
-        transaction_id INT NOT NULL,
+        transaction_id ${ledgerTransactionType} NOT NULL,
         wallet_id INT NOT NULL,
         entry_type ENUM('credit', 'debit') NOT NULL,
         amount DECIMAL(15, 2) NOT NULL,
@@ -1169,6 +1173,24 @@ async function initDatabase() {
         CONSTRAINT fk_ledger_wallet FOREIGN KEY (wallet_id) REFERENCES wallets(id) ON DELETE CASCADE
       ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci
     `);
+    const [ledgerColumns] = await connection.query(`
+      SELECT COLUMN_NAME, IS_NULLABLE FROM INFORMATION_SCHEMA.COLUMNS
+      WHERE TABLE_SCHEMA = DATABASE() AND TABLE_NAME = 'wallet_ledger_entries'
+    `);
+    const ledgerColumnNullability = new Map(ledgerColumns.map(column => [column.COLUMN_NAME, column.IS_NULLABLE]));
+    const ledgerChanges = [];
+    if (ledgerColumnNullability.has('balance_after') && !ledgerColumnNullability.has('running_balance')) {
+      ledgerChanges.push('CHANGE COLUMN balance_after running_balance DECIMAL(15, 2) NOT NULL');
+    }
+    if (ledgerColumnNullability.has('note') && !ledgerColumnNullability.has('notes')) {
+      ledgerChanges.push('RENAME COLUMN note TO notes');
+    }
+    if (ledgerColumnNullability.get('balance_before') === 'NO') {
+      ledgerChanges.push('MODIFY COLUMN balance_before DECIMAL(12, 2) NULL');
+    }
+    if (ledgerChanges.length) {
+      await connection.query(`ALTER TABLE wallet_ledger_entries ${ledgerChanges.join(', ')}`);
+    }
 
     // ------------------------------------------------------------
     // Migration: Hệ thống Voucher & Khuyến mãi động (Vouchers Engine)
@@ -1240,8 +1262,13 @@ async function initDatabase() {
       SELECT id, 'customer', 0.00, 'VND', 'active' FROM users WHERE role IN ('customer', 'user')
     `);
 
-    // Khởi tạo số dư trải nghiệm 1.000.000 VND cho tài khoản demo (user_id = 2) nếu ví đang có số dư 0
-    const [demoWallet] = await connection.query('SELECT id, balance FROM wallets WHERE user_id = 2 LIMIT 1');
+    // Chỉ cấp số dư trải nghiệm ngoài production cho ví của tài khoản mẫu.
+    const [demoWallet] = ['development', 'test'].includes(process.env.NODE_ENV)
+      ? await connection.query(`
+        SELECT w.id, w.balance FROM wallets w JOIN users u ON u.id = w.user_id
+        WHERE u.id = 2 AND u.email = 'demo@nova.app' AND w.wallet_type = 'customer'
+      `)
+      : [[]];
     if (demoWallet && demoWallet[0] && parseFloat(demoWallet[0].balance) === 0) {
       const demoWalletId = demoWallet[0].id;
       const initialAmt = 1000000.00;
@@ -1250,7 +1277,7 @@ async function initDatabase() {
       await connection.query(`
         INSERT IGNORE INTO wallet_transactions 
         (transaction_code, wallet_id, user_id, type, amount, balance_before, balance_after, status, description, reference_type, reference_id)
-        VALUES (?, ?, 2, 'topup', ?, 0.00, ?, 'completed', 'Số dư trải nghiệm Ví CleanNova sandbox ban đầu', 'system_grant', 'demo_init')
+        VALUES (?, ?, 2, 'topup', ?, 0.00, ?, 'completed', 'Số dư trải nghiệm Ví DabClean sandbox ban đầu', 'system_grant', 'demo_init')
       `, [txnCode, demoWalletId, initialAmt, initialAmt]);
       const [insertedTxn] = await connection.query('SELECT id FROM wallet_transactions WHERE transaction_code = ? LIMIT 1', [txnCode]);
       if (insertedTxn && insertedTxn[0]) {
@@ -1262,7 +1289,7 @@ async function initDatabase() {
     }
 
     // ------------------------------------------------------------
-    // Migration: Bảng cấu hình chính sách hệ thống CleanNova (system_configs)
+    // Migration: Bảng cấu hình chính sách hệ thống DabClean (system_configs)
     // ------------------------------------------------------------
     await connection.query(`
       CREATE TABLE IF NOT EXISTS system_configs (
@@ -1284,8 +1311,8 @@ async function initDatabase() {
          VALUES (?, ?, ?)`,
         [
           'staff_commission_rate',
-          JSON.stringify({ rate: 0.20, description: 'Tỷ lệ chiết khấu CleanNova mặc định khấu trừ từ tiền công nhân viên (20%)' }),
-          'Tỷ lệ chiết khấu CleanNova khấu trừ từ tiền công nhân viên'
+          JSON.stringify({ rate: 0.20, description: 'Tỷ lệ chiết khấu DabClean mặc định khấu trừ từ tiền công nhân viên (20%)' }),
+          'Tỷ lệ chiết khấu DabClean khấu trừ từ tiền công nhân viên'
         ]
       );
     }
@@ -1366,26 +1393,13 @@ async function initDatabase() {
 
     console.log(`[Database] Đã kết nối thành công tới MySQL Server (${dbConfig.host}:${dbConfig.port}/${dbConfig.database})`);
     isConnectedToMySQL = true;
-  } catch (err) {
-    console.error('====================================================');
-    console.error(`[DATABASE ERROR CRITICAL] Không thể kết nối tới MySQL (${err.code || err.message})!`);
-    console.error('Migration error detail:', err);
-    console.error(`- Host: ${dbConfig.host}:${dbConfig.port} | Database: ${dbConfig.database} | User: ${dbConfig.user}`);
-    
-    // Trong môi trường Production, không được phép âm thầm chuyển sang in-memory, từ chối khởi động
-    if (process.env.NODE_ENV === 'production') {
-      console.error('[DATABASE ERROR FATAL] Trong môi trường Production, kết nối MySQL là BẮT BUỘC.');
-      console.error('Ứng dụng từ chối khởi động để tránh rò rỉ dữ liệu hoặc mất đồng bộ.');
-      console.error('====================================================');
-      process.exit(1);
-    }
-
-    console.error('CẢNH BÁO BẢO VỆ DỮ LIỆU: Ứng dụng đang tạm thời chuyển sang cơ chế In-Memory Database cho môi trường Dev/Test.');
-    console.error('LƯU Ý: Mọi thay đổi dữ liệu (tài khoản mới, đơn đặt) sẽ BỊ MẤT khi restart máy chủ nếu không sửa kết nối MySQL!');
-    console.error('====================================================');
-    isConnectedToMySQL = false;
   } finally {
     if (connection) connection.release();
+    if (!isConnectedToMySQL && pool) {
+      const failedPool = pool;
+      pool = null;
+      await failedPool.end().catch(err => console.error('[Database] Lỗi đóng pool:', err.code || err.message));
+    }
   }
 }
 
@@ -1401,8 +1415,8 @@ async function query(sql, params = []) {
     }
   }
 
-  // Nếu chưa có MySQL, xử lý an toàn qua In-Memory data
-  return queryInMemory(sql, params);
+  if (demoEnabled) return queryInMemory(sql, params);
+  throw Object.assign(new Error('Cơ sở dữ liệu MySQL chưa sẵn sàng.'), { statusCode: 503 });
 }
 
 // Xử lý truy vấn mô phỏng khi chưa kết nối MySQL
@@ -2037,7 +2051,7 @@ function queryInMemory(sql, params = []) {
             standard_price: 450000,
             staff_daily_wage: 320000,
             includes_equipment: true,
-            description: 'Mức giá tham khảo bao gồm máy móc và hóa chất cơ bản theo chính sách CleanNova'
+            description: 'Mức giá tham khảo bao gồm máy móc và hóa chất cơ bản theo chính sách DabClean'
           }),
           updated_at: new Date()
         },
@@ -2254,7 +2268,7 @@ function queryInMemory(sql, params = []) {
         id: inMemoryData.system_configs.length + 1,
         config_key: 'staff_commission_rate',
         config_value: val,
-        description: 'Tỷ lệ chiết khấu CleanNova khấu trừ từ tiền công nhân viên',
+        description: 'Tỷ lệ chiết khấu DabClean khấu trừ từ tiền công nhân viên',
         updated_by: adminId,
         updated_at: new Date()
       });
@@ -2350,11 +2364,9 @@ function queryInMemory(sql, params = []) {
   return [];
 }
 
-// Khởi chạy kết nối ngay khi file được nạp
-initDatabase();
-
 module.exports = {
   demo,
+  initDatabase,
   query,
   isMySQLConnected: () => isConnectedToMySQL,
   getPool: () => pool

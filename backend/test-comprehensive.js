@@ -1,5 +1,5 @@
 // ============================================================
-// CLEANOVA - BỘ KIỂM THỬ TOÀN DIỆN (COMPREHENSIVE TEST SUITE)
+// DabClean - BỘ KIỂM THỬ TOÀN DIỆN (COMPREHENSIVE TEST SUITE)
 // Bao gồm: Unit Tests, Integration Tests, Security Tests, RBAC & State Machine
 // ============================================================
 const http = require('http');
@@ -42,7 +42,7 @@ function request(urlPath, options = {}) {
 
 async function runTestSuite() {
   console.log('============================================================');
-  console.log('🧪 BẮT ĐẦU CHẠY BỘ KIỂM THỬ TOÀN DIỆN CLEANOVA THEO AGENTS.MD');
+  console.log('🧪 BẮT ĐẦU CHẠY BỘ KIỂM THỬ TOÀN DIỆN DabClean THEO AGENTS.MD');
   console.log('============================================================\n');
 
   let passed = 0;

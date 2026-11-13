@@ -9,7 +9,7 @@
 
 | Phase | Nội dung công việc | Trạng thái | Ghi chú & Bằng chứng nghiệm thu |
 | :---: | :--- | :---: | :--- |
-| **Phase 0** | Audit toàn bộ repository & Lập kế hoạch chi tiết | **Completed** | Đã tạo [`docs/BIG_UPDATE_AUDIT.md`](file:///c:/Users/tiend/Downloads/cleannova/docs/BIG_UPDATE_AUDIT.md) xác minh 9 lỗi cốt lõi. |
+| **Phase 0** | Audit toàn bộ repository & Lập kế hoạch chi tiết | **Completed** | Đã tạo [`docs/BIG_UPDATE_AUDIT.md`](file:///c:/Users/tiend/Downloads/DabClean/docs/BIG_UPDATE_AUDIT.md) xác minh 9 lỗi cốt lõi. |
 | **Phase 1** | Bảo mật & Ổn định Backend (JWT, Rate limit, SQL fix) | **Completed** | Khắc phục truy vấn quyết toán tiền công (`staff_payout_logs`), bảo vệ JWT secret, chống brute-force registration. |
 | **Phase 2** | Database Schema & Migration an toàn (Ví, Voucher, Addons) | **Completed** | Migration bảng `wallets`, `wallet_transactions`, `wallet_ledger_entries`, `vouchers`, `voucher_usages`, `addons`. |
 | **Phase 3** | Chuẩn hóa Dịch vụ, Add-ons & Dynamic Voucher Engine | **Completed** | Backend `pricingService.js` tính add-on thực tế, `voucherModel.js` xác thực mã động và ghi nhận lịch sử sử dụng. |
@@ -25,45 +25,45 @@
 ## 2. DANH SÁCH FILE ĐÃ SỬA HOẶC TẠO MỚI
 
 ### A. Tài liệu & Báo cáo kỹ thuật:
-1. [`docs/BIG_UPDATE_AUDIT.md`](file:///c:/Users/tiend/Downloads/cleannova/docs/BIG_UPDATE_AUDIT.md): Báo cáo audit chuyên sâu 9 lỗ hổng, phân loại mức độ nghiêm trọng, nguyên nhân gốc, bước tái hiện và giải pháp.
-2. [`docs/BIG_UPDATE_PROGRESS.md`](file:///c:/Users/tiend/Downloads/cleannova/docs/BIG_UPDATE_PROGRESS.md): Tài liệu theo dõi tiến độ tổng thể chuẩn Master Prompt.
+1. [`docs/BIG_UPDATE_AUDIT.md`](file:///c:/Users/tiend/Downloads/DabClean/docs/BIG_UPDATE_AUDIT.md): Báo cáo audit chuyên sâu 9 lỗ hổng, phân loại mức độ nghiêm trọng, nguyên nhân gốc, bước tái hiện và giải pháp.
+2. [`docs/BIG_UPDATE_PROGRESS.md`](file:///c:/Users/tiend/Downloads/DabClean/docs/BIG_UPDATE_PROGRESS.md): Tài liệu theo dõi tiến độ tổng thể chuẩn Master Prompt.
 
 ### B. Database Schema & Migration:
-3. [`database/schema.sql`](file:///c:/Users/tiend/Downloads/cleannova/database/schema.sql): Bổ sung định nghĩa các bảng `wallets`, `wallet_transactions`, `wallet_ledger_entries`, `vouchers`, `voucher_usages`, `system_configs`; cập nhật `bookings` (`commission_rate`, `platform_commission`, `staff_net_wage`), cập nhật `staff_payout_logs` (`gross_wage`, `commission_rate`, `platform_commission`, `net_wage`), mở rộng ENUM `wallet_transactions.type` (`'wage'`, `'withdrawal'`).
-4. [`backend/src/config/db.js`](file:///c:/Users/tiend/Downloads/cleannova/backend/src/config/db.js): Tích hợp migration idempotent tự động tạo bảng, alter cột an toàn trong `initDatabase()`, seed `staff_commission_rate = 0.20`, và hỗ trợ dynamic column backfill.
+3. [`database/schema.sql`](file:///c:/Users/tiend/Downloads/DabClean/database/schema.sql): Bổ sung định nghĩa các bảng `wallets`, `wallet_transactions`, `wallet_ledger_entries`, `vouchers`, `voucher_usages`, `system_configs`; cập nhật `bookings` (`commission_rate`, `platform_commission`, `staff_net_wage`), cập nhật `staff_payout_logs` (`gross_wage`, `commission_rate`, `platform_commission`, `net_wage`), mở rộng ENUM `wallet_transactions.type` (`'wage'`, `'withdrawal'`).
+4. [`backend/src/config/db.js`](file:///c:/Users/tiend/Downloads/DabClean/backend/src/config/db.js): Tích hợp migration idempotent tự động tạo bảng, alter cột an toàn trong `initDatabase()`, seed `staff_commission_rate = 0.20`, và hỗ trợ dynamic column backfill.
 
 ### C. Backend Models, Controllers & Services:
-5. [`backend/src/services/pricingService.js`](file:///c:/Users/tiend/Downloads/cleannova/backend/src/services/pricingService.js): Bổ sung hàm chuẩn `calculateCommission(grossWage, commissionRate)` làm tròn số nguyên (`Math.round`), trả về `grossWage`, `commissionRate`, `platformCommission`, `staffNetWage` cho mọi loại dịch vụ.
-6. [`backend/src/models/bookingModel.js`](file:///c:/Users/tiend/Downloads/cleannova/backend/src/models/bookingModel.js): Lưu snapshot hoa hồng bất biến khi tạo/duyệt đơn; nâng cấp `getStats()` phân rã 10 chỉ số tài chính độc lập theo ngày, tránh tích Descartes; hỗ trợ `getCommissionConfig()` và `updateCommissionConfig()`.
-7. [`backend/src/models/walletModel.js`](file:///c:/Users/tiend/Downloads/cleannova/backend/src/models/walletModel.js): Thêm `payoutWage({ bookingId, adminId, note })` ghi có nguyên tử vào ví nhân viên (`staff_net_wage`) kèm sổ cái và log đối soát; thêm `withdraw()` tạo lệnh rút tiền thợ; thêm `getStaffWageSummary()`.
-8. [`backend/src/controllers/walletController.js`](file:///c:/Users/tiend/Downloads/cleannova/backend/src/controllers/walletController.js): Bổ sung endpoint `withdraw` (tương thích cả camelCase và snake_case) và `getStaffWageSummary`.
-9. [`backend/src/controllers/adminController.js`](file:///c:/Users/tiend/Downloads/cleannova/backend/src/controllers/adminController.js): Ủy quyền thanh toán công thợ qua `WalletModel.payoutWage`; kết nối bộ lọc ngày vào `BookingModel.getStats`; thêm API xem và cấu hình hoa hồng nhân viên.
-10. [`backend/src/routes/walletRoutes.js`](file:///c:/Users/tiend/Downloads/cleannova/backend/src/routes/walletRoutes.js): Khai báo `POST /api/wallet/withdraw` và `GET /api/wallet/staff/summary`.
-11. [`backend/src/routes/adminRoutes.js`](file:///c:/Users/tiend/Downloads/cleannova/backend/src/routes/adminRoutes.js): Khai báo `GET/PUT /api/admin/config/commission` và hỗ trợ cả `POST` lẫn `PATCH` cho `/bookings/:id/payout`.
-12. [`backend/src/models/voucherModel.js`](file:///c:/Users/tiend/Downloads/cleannova/backend/src/models/voucherModel.js): Quản trị voucher và ghi nhận sử dụng.
-13. [`backend/src/controllers/voucherController.js`](file:///c:/Users/tiend/Downloads/cleannova/backend/src/controllers/voucherController.js): Điều khiển voucher API.
-14. [`backend/src/routes/voucherRoutes.js`](file:///c:/Users/tiend/Downloads/cleannova/backend/src/routes/voucherRoutes.js): Định tuyến `/api/vouchers/*`.
-15. [`backend/src/controllers/bookingController.js`](file:///c:/Users/tiend/Downloads/cleannova/backend/src/controllers/bookingController.js): Hỗ trợ thanh toán ví, hoàn tiền, lưu addons và snapshot thù lao.
-16. [`backend/src/controllers/authController.js`](file:///c:/Users/tiend/Downloads/cleannova/backend/src/controllers/authController.js): Khởi tạo ví tự động khi đăng ký.
-17. [`backend/src/middleware/authMiddleware.js`](file:///c:/Users/tiend/Downloads/cleannova/backend/src/middleware/authMiddleware.js): Chuẩn hóa RBAC và export.
-18. [`backend/src/app.js`](file:///c:/Users/tiend/Downloads/cleannova/backend/src/app.js): Đăng ký routers.
+5. [`backend/src/services/pricingService.js`](file:///c:/Users/tiend/Downloads/DabClean/backend/src/services/pricingService.js): Bổ sung hàm chuẩn `calculateCommission(grossWage, commissionRate)` làm tròn số nguyên (`Math.round`), trả về `grossWage`, `commissionRate`, `platformCommission`, `staffNetWage` cho mọi loại dịch vụ.
+6. [`backend/src/models/bookingModel.js`](file:///c:/Users/tiend/Downloads/DabClean/backend/src/models/bookingModel.js): Lưu snapshot hoa hồng bất biến khi tạo/duyệt đơn; nâng cấp `getStats()` phân rã 10 chỉ số tài chính độc lập theo ngày, tránh tích Descartes; hỗ trợ `getCommissionConfig()` và `updateCommissionConfig()`.
+7. [`backend/src/models/walletModel.js`](file:///c:/Users/tiend/Downloads/DabClean/backend/src/models/walletModel.js): Thêm `payoutWage({ bookingId, adminId, note })` ghi có nguyên tử vào ví nhân viên (`staff_net_wage`) kèm sổ cái và log đối soát; thêm `withdraw()` tạo lệnh rút tiền thợ; thêm `getStaffWageSummary()`.
+8. [`backend/src/controllers/walletController.js`](file:///c:/Users/tiend/Downloads/DabClean/backend/src/controllers/walletController.js): Bổ sung endpoint `withdraw` (tương thích cả camelCase và snake_case) và `getStaffWageSummary`.
+9. [`backend/src/controllers/adminController.js`](file:///c:/Users/tiend/Downloads/DabClean/backend/src/controllers/adminController.js): Ủy quyền thanh toán công thợ qua `WalletModel.payoutWage`; kết nối bộ lọc ngày vào `BookingModel.getStats`; thêm API xem và cấu hình hoa hồng nhân viên.
+10. [`backend/src/routes/walletRoutes.js`](file:///c:/Users/tiend/Downloads/DabClean/backend/src/routes/walletRoutes.js): Khai báo `POST /api/wallet/withdraw` và `GET /api/wallet/staff/summary`.
+11. [`backend/src/routes/adminRoutes.js`](file:///c:/Users/tiend/Downloads/DabClean/backend/src/routes/adminRoutes.js): Khai báo `GET/PUT /api/admin/config/commission` và hỗ trợ cả `POST` lẫn `PATCH` cho `/bookings/:id/payout`.
+12. [`backend/src/models/voucherModel.js`](file:///c:/Users/tiend/Downloads/DabClean/backend/src/models/voucherModel.js): Quản trị voucher và ghi nhận sử dụng.
+13. [`backend/src/controllers/voucherController.js`](file:///c:/Users/tiend/Downloads/DabClean/backend/src/controllers/voucherController.js): Điều khiển voucher API.
+14. [`backend/src/routes/voucherRoutes.js`](file:///c:/Users/tiend/Downloads/DabClean/backend/src/routes/voucherRoutes.js): Định tuyến `/api/vouchers/*`.
+15. [`backend/src/controllers/bookingController.js`](file:///c:/Users/tiend/Downloads/DabClean/backend/src/controllers/bookingController.js): Hỗ trợ thanh toán ví, hoàn tiền, lưu addons và snapshot thù lao.
+16. [`backend/src/controllers/authController.js`](file:///c:/Users/tiend/Downloads/DabClean/backend/src/controllers/authController.js): Khởi tạo ví tự động khi đăng ký.
+17. [`backend/src/middleware/authMiddleware.js`](file:///c:/Users/tiend/Downloads/DabClean/backend/src/middleware/authMiddleware.js): Chuẩn hóa RBAC và export.
+18. [`backend/src/app.js`](file:///c:/Users/tiend/Downloads/DabClean/backend/src/app.js): Đăng ký routers.
 
 ### D. Frontend & UI/UX:
-19. [`frontend/api.js`](file:///c:/Users/tiend/Downloads/cleannova/frontend/api.js): Bổ sung `DabCleanAPI.admin.getCommissionConfig`, `DabCleanAPI.admin.updateCommissionConfig`, `DabCleanAPI.wallet.withdraw`, `DabCleanAPI.wallet.getStaffSummary`, và bộ lọc tham số trong `DabCleanAPI.admin.getStats`.
-20. [`frontend/staff.html`](file:///c:/Users/tiend/Downloads/cleannova/frontend/staff.html): Thêm tab "👛 Ví & Thù Lao", 5 thẻ chỉ số tài chính thợ (Số dư khả dụng, Chờ thanh toán, Tiền công gộp, Chiết khấu đã trích, Thực nhận ròng), bảng phân rã thù lao chi tiết theo đơn, bảng lịch sử sổ cái ví, và Modal rút tiền về tài khoản ngân hàng.
-21. [`frontend/admin.html`](file:///c:/Users/tiend/Downloads/cleannova/frontend/admin.html): Tái cấu trúc Dashboard tài chính với 10 chỉ số phân định rõ ràng; thanh công cụ lọc khoảng thời gian (Hôm nay, 7 ngày, Tháng này, Toàn bộ, Tùy chỉnh); bảng phân tích tài chính theo ngày; Modal cấu hình tỷ lệ chiết khấu nhân viên.
-22. [`frontend/wallet.html`](file:///c:/Users/tiend/Downloads/cleannova/frontend/wallet.html): Giao diện Ví khách hàng.
-23. [`frontend/booking.html`](file:///c:/Users/tiend/Downloads/cleannova/frontend/booking.html): Tích hợp thanh toán ví.
+19. [`frontend/api.js`](file:///c:/Users/tiend/Downloads/DabClean/frontend/api.js): Bổ sung `DabCleanAPI.admin.getCommissionConfig`, `DabCleanAPI.admin.updateCommissionConfig`, `DabCleanAPI.wallet.withdraw`, `DabCleanAPI.wallet.getStaffSummary`, và bộ lọc tham số trong `DabCleanAPI.admin.getStats`.
+20. [`frontend/staff.html`](file:///c:/Users/tiend/Downloads/DabClean/frontend/staff.html): Thêm tab "👛 Ví & Thù Lao", 5 thẻ chỉ số tài chính thợ (Số dư khả dụng, Chờ thanh toán, Tiền công gộp, Chiết khấu đã trích, Thực nhận ròng), bảng phân rã thù lao chi tiết theo đơn, bảng lịch sử sổ cái ví, và Modal rút tiền về tài khoản ngân hàng.
+21. [`frontend/admin.html`](file:///c:/Users/tiend/Downloads/DabClean/frontend/admin.html): Tái cấu trúc Dashboard tài chính với 10 chỉ số phân định rõ ràng; thanh công cụ lọc khoảng thời gian (Hôm nay, 7 ngày, Tháng này, Toàn bộ, Tùy chỉnh); bảng phân tích tài chính theo ngày; Modal cấu hình tỷ lệ chiết khấu nhân viên.
+22. [`frontend/wallet.html`](file:///c:/Users/tiend/Downloads/DabClean/frontend/wallet.html): Giao diện Ví khách hàng.
+23. [`frontend/booking.html`](file:///c:/Users/tiend/Downloads/DabClean/frontend/booking.html): Tích hợp thanh toán ví.
 
 ### E. Test Suites:
-24. [`backend/test-staff-wallet-commission.js`](file:///c:/Users/tiend/Downloads/cleannova/backend/test-staff-wallet-commission.js) *(Mới)*: Bộ kiểm thử 27 ca test bao phủ toàn bộ luồng chiết khấu nhân viên, công thức toán học, snapshot bất biến, ví thợ, rút tiền, và 10 chỉ số Admin Dashboard.
-25. [`test-wallet-system.js`](file:///c:/Users/tiend/Downloads/cleannova/test-wallet-system.js): Kiểm thử Ví khách hàng và Sổ cái.
+24. [`backend/test-staff-wallet-commission.js`](file:///c:/Users/tiend/Downloads/DabClean/backend/test-staff-wallet-commission.js) *(Mới)*: Bộ kiểm thử 27 ca test bao phủ toàn bộ luồng chiết khấu nhân viên, công thức toán học, snapshot bất biến, ví thợ, rút tiền, và 10 chỉ số Admin Dashboard.
+25. [`test-wallet-system.js`](file:///c:/Users/tiend/Downloads/DabClean/test-wallet-system.js): Kiểm thử Ví khách hàng và Sổ cái.
 
 ---
 
 ## 3. THAY ĐỔI SCHEMA & MIGRATION DATABASE THỰC TẾ
 
-Migration được thiết kế **idempotent**, thực hiện an toàn qua `initDatabase()` trong [`backend/src/config/db.js`](file:///c:/Users/tiend/Downloads/cleannova/backend/src/config/db.js):
+Migration được thiết kế **idempotent**, thực hiện an toàn qua `initDatabase()` trong [`backend/src/config/db.js`](file:///c:/Users/tiend/Downloads/DabClean/backend/src/config/db.js):
 
 1. **Bảng `system_configs` (Cấu hình hệ thống):**
    - Cột: `id`, `config_key` (UNIQUE), `config_value` (JSON), `description`, `updated_by`, `updated_at`.
@@ -116,15 +116,15 @@ Tất cả các bộ kiểm thử đã được chạy trên môi trường th�
 
 | Bộ kiểm thử (Test Suite) | Mục tiêu kiểm thử | Số ca test | Kết quả |
 | :--- | :--- | :---: | :---: |
-| [`backend/test-staff-wallet-commission.js`](file:///c:/Users/tiend/Downloads/cleannova/backend/test-staff-wallet-commission.js) | Chiết khấu hoa hồng thợ, Snapshot bất biến, Sổ cái ví thợ, Rút tiền, 10 chỉ số Admin, Bộ lọc ngày | 27 | **27/27 PASS** |
-| [`test-wallet-system.js`](file:///c:/Users/tiend/Downloads/cleannova/test-wallet-system.js) | Ví DabClean, Ledger, Idempotency, Pay Booking, Auto-refund, Admin Oversight | 10 | **10/10 PASS** |
-| [`test-care-redesign.js`](file:///c:/Users/tiend/Downloads/cleannova/test-care-redesign.js) | Dịch vụ chăm sóc người già/trẻ em/người bệnh, bảng giá ca/ngày/tháng, điều phối thợ | 35 | **35/35 PASS** |
-| [`test-homepage-verify.js`](file:///c:/Users/tiend/Downloads/cleannova/test-homepage-verify.js) | Giao diện trang chủ, thẻ dịch vụ, bộ lọc danh mục, bảng giá, FAQ, form báo giá | 22 | **22/22 PASS** |
-| [`test-post-construction.js`](file:///c:/Users/tiend/Downloads/cleannova/test-post-construction.js) | Vệ sinh sau xây dựng theo m², trọn gói, công thợ theo ngày, duyệt báo giá Admin | 47 | **47/47 PASS** |
-| [`backend/test-rbac-staff.js`](file:///c:/Users/tiend/Downloads/cleannova/backend/test-rbac-staff.js) | Phân quyền RBAC, Staff chỉ xem đơn được giao, Admin quản trị an toàn | 10 | **10/10 PASS** |
-| [`backend/test-comprehensive.js`](file:///c:/Users/tiend/Downloads/cleannova/backend/test-comprehensive.js) | Unit pricing, Stored XSS prevention, JWT fail-safe, Anti-bruteforce, Concurrency | 21 | **21/21 PASS** |
-| [`backend/test-guest-access.js`](file:///c:/Users/tiend/Downloads/cleannova/backend/test-guest-access.js) | Khách vãng lai xem dịch vụ công khai, chặn tạo đơn khi chưa login | 12 | **12/12 PASS** |
-| [`backend/test-return-url.js`](file:///c:/Users/tiend/Downloads/cleannova/backend/test-return-url.js) | Chống Open-Redirect, chặn giả mạo URL chuyển hướng sau login | 12 | **12/12 PASS** |
+| [`backend/test-staff-wallet-commission.js`](file:///c:/Users/tiend/Downloads/DabClean/backend/test-staff-wallet-commission.js) | Chiết khấu hoa hồng thợ, Snapshot bất biến, Sổ cái ví thợ, Rút tiền, 10 chỉ số Admin, Bộ lọc ngày | 27 | **27/27 PASS** |
+| [`test-wallet-system.js`](file:///c:/Users/tiend/Downloads/DabClean/test-wallet-system.js) | Ví DabClean, Ledger, Idempotency, Pay Booking, Auto-refund, Admin Oversight | 10 | **10/10 PASS** |
+| [`test-care-redesign.js`](file:///c:/Users/tiend/Downloads/DabClean/test-care-redesign.js) | Dịch vụ chăm sóc người già/trẻ em/người bệnh, bảng giá ca/ngày/tháng, điều phối thợ | 35 | **35/35 PASS** |
+| [`test-homepage-verify.js`](file:///c:/Users/tiend/Downloads/DabClean/test-homepage-verify.js) | Giao diện trang chủ, thẻ dịch vụ, bộ lọc danh mục, bảng giá, FAQ, form báo giá | 22 | **22/22 PASS** |
+| [`test-post-construction.js`](file:///c:/Users/tiend/Downloads/DabClean/test-post-construction.js) | Vệ sinh sau xây dựng theo m², trọn gói, công thợ theo ngày, duyệt báo giá Admin | 47 | **47/47 PASS** |
+| [`backend/test-rbac-staff.js`](file:///c:/Users/tiend/Downloads/DabClean/backend/test-rbac-staff.js) | Phân quyền RBAC, Staff chỉ xem đơn được giao, Admin quản trị an toàn | 10 | **10/10 PASS** |
+| [`backend/test-comprehensive.js`](file:///c:/Users/tiend/Downloads/DabClean/backend/test-comprehensive.js) | Unit pricing, Stored XSS prevention, JWT fail-safe, Anti-bruteforce, Concurrency | 21 | **21/21 PASS** |
+| [`backend/test-guest-access.js`](file:///c:/Users/tiend/Downloads/DabClean/backend/test-guest-access.js) | Khách vãng lai xem dịch vụ công khai, chặn tạo đơn khi chưa login | 12 | **12/12 PASS** |
+| [`backend/test-return-url.js`](file:///c:/Users/tiend/Downloads/DabClean/backend/test-return-url.js) | Chống Open-Redirect, chặn giả mạo URL chuyển hướng sau login | 12 | **12/12 PASS** |
 | **TỔNG CỘNG** | **Toàn bộ hệ thống DabClean** | **196** | **196/196 PASS (100%)** |
 
 ---
@@ -146,8 +146,8 @@ Tất cả các bộ kiểm thử đã được chạy trên môi trường th�
   - Tự động hoàn tiền 100% vào ví khi khách hủy đơn đã thanh toán.
   - Quyết toán thù lao thợ nguyên tử vào Staff Wallet với Idempotency Key `WAGE-BOOKING-${id}`.
   - Rút tiền từ Staff Wallet về tài khoản ngân hàng.
-  - Giao diện Ví khách hàng [`frontend/wallet.html`](file:///c:/Users/tiend/Downloads/cleannova/frontend/wallet.html).
-  - Tab "Ví & Thù Lao" trong Portal nhân viên [`frontend/staff.html`](file:///c:/Users/tiend/Downloads/cleannova/frontend/staff.html).
+  - Giao diện Ví khách hàng [`frontend/wallet.html`](file:///c:/Users/tiend/Downloads/DabClean/frontend/wallet.html).
+  - Tab "Ví & Thù Lao" trong Portal nhân viên [`frontend/staff.html`](file:///c:/Users/tiend/Downloads/DabClean/frontend/staff.html).
 - [x] Báo cáo tài chính Admin Dashboard:
   - 10 chỉ số tài chính phân định rạch ròi, loại bỏ hoàn toàn sự mập mờ của "Tổng doanh thu".
   - Tiền nạp ví khách hàng được ghi nhận là Nghĩa vụ nợ (`customer_wallet_liabilities`), không tính lẫn vào doanh thu dịch vụ.
@@ -228,7 +228,7 @@ node backend/test-return-url.js
    - **Rút tiền (`withdraw`):** Nhân viên thực hiện rút tiền về tài khoản ngân hàng từ Ví Thu Nhập khả dụng.
 
 ### B. Kết Quả Kiểm Thử Toàn Diện (13 Kịch Bản Bắt Buộc):
-- File kiểm thử: [`backend/test-two-staff-wallets.js`](file:///c:/Users/tiend/Downloads/cleannova/backend/test-two-staff-wallets.js).
+- File kiểm thử: [`backend/test-two-staff-wallets.js`](file:///c:/Users/tiend/Downloads/DabClean/backend/test-two-staff-wallets.js).
 - Kết quả: **31/31 tests PASS (100%)**.
   1. Đơn tiền mặt 200k, CK 40k: Ví tín dụng -40k, Ví thu nhập giữ nguyên 0đ.
   2. Đơn trực tuyến 200k, CK 40k: Ví tín dụng -40k, Ví thu nhập +160k.

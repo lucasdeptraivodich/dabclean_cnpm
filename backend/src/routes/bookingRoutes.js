@@ -5,12 +5,16 @@ const express = require('express');
 const router = express.Router();
 const bookingController = require('../controllers/bookingController');
 const { verifyToken } = require('../middleware/authMiddleware');
+const db = require('../config/db');
 
 // Lấy danh sách đánh giá công khai (không bắt buộc token)
 router.get('/reviews/all', bookingController.getAllReviews);
 
 // Tính toán báo giá nhanh (Công khai hoặc kiểm tra ưu đãi)
-router.post('/quote', bookingController.getQuote);
+router.post('/quote', (req, res, next) => {
+  if (db.demo && req.headers.authorization) return verifyToken(req, res, next);
+  next();
+}, bookingController.getQuote);
 
 // Tất cả các route đặt lịch bên dưới đều yêu cầu đăng nhập
 router.use(verifyToken);

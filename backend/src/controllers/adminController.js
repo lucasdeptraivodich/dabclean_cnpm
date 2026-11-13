@@ -19,6 +19,7 @@ const adminController = {
       const stats = await BookingModel.getStats(req.query);
       res.json({
         success: true,
+        demo_features: Boolean(db.demo),
         data: stats
       });
     } catch (err) {
@@ -61,6 +62,9 @@ const adminController = {
       }
 
       // Bảo vệ: Không cho phép đổi trạng thái của đơn đã hoàn thành hoặc đã hủy
+      if (status !== 'cancelled' && db.demo?.features.hasPendingPrebook(booking)) {
+        return res.status(409).json({ success: false, message: 'Lịch đặt trước phải được xử lý qua luồng xác nhận của nhân viên.' });
+      }
       if (booking.status === 'completed' || booking.status === 'cancelled') {
         return res.status(409).json({
           success: false,
@@ -72,6 +76,7 @@ const adminController = {
         return res.status(400).json({ success: false, message: 'Lý do hủy phải dài từ 5 đến 500 ký tự.' });
       }
       if (status === 'in_progress' || status === 'completed') {
+        if (status === 'completed' && db.demo) db.demo.features.enforceCompletionSignature(booking);
         const photos = await BookingModel.getJobPhotos(id);
         const progress = getPhotoProgress(getRequiredAreas(booking.service_name, booking.category || ''), photos);
         if (photos.length > 0 && !req.body.bypass_photo_check) {
@@ -151,6 +156,9 @@ const adminController = {
       // Bug 2: Quyết toán thù lao và chiết khấu hai ví khi đơn hoàn thành - Không nuốt lỗi
       let settlementResult = null;
       if (status === 'completed' && booking.status !== 'completed') {
+        db.demo?.features.markCompletion(id);
+      }
+      if (status === 'completed' && booking.status !== 'completed' && !db.demo?.features.settlementHeld(id)) {
         try {
           settlementResult = await WalletModel.settleBookingCommissionAndWage({
             bookingId: id,
@@ -219,7 +227,7 @@ const adminController = {
 
       res.json({
         success: true,
-        message: `Đã quyết toán thành công thù lao đơn #${result.booking_code}. Khấu trừ chiết khấu CleanNova: ${Number(result.platform_commission || 0).toLocaleString('vi-VN')} đ, Thực nhận vào ví: ${Number(result.net_wage || 0).toLocaleString('vi-VN')} đ.`,
+        message: `Đã quyết toán thành công thù lao đơn #${result.booking_code}. Khấu trừ chiết khấu DabClean: ${Number(result.platform_commission || 0).toLocaleString('vi-VN')} đ, Thực nhận vào ví: ${Number(result.net_wage || 0).toLocaleString('vi-VN')} đ.`,
         data: result
       });
     } catch (err) {
@@ -227,7 +235,7 @@ const adminController = {
     }
   },
 
-  // 3b-2. Lấy cấu hình tỷ lệ chiết khấu CleanNova (GET /api/admin/config/commission)
+  // 3b-2. Lấy cấu hình tỷ lệ chiết khấu DabClean (GET /api/admin/config/commission)
   async getCommissionConfig(req, res, next) {
     try {
       const config = await BookingModel.getCommissionConfig();
@@ -240,7 +248,7 @@ const adminController = {
     }
   },
 
-  // 3b-3. Cập nhật cấu hình tỷ lệ chiết khấu CleanNova (PUT /api/admin/config/commission)
+  // 3b-3. Cập nhật cấu hình tỷ lệ chiết khấu DabClean (PUT /api/admin/config/commission)
   async updateCommissionConfig(req, res, next) {
     try {
       const { rate, reason } = req.body;
@@ -254,11 +262,11 @@ const adminController = {
         'UPDATE_COMMISSION_CONFIG',
         null,
         'system_config',
-        `Cập nhật tỷ lệ chiết khấu CleanNova thành ${Math.round(updated.rate * 100)}%: ${reason || ''}`
+        `Cập nhật tỷ lệ chiết khấu DabClean thành ${Math.round(updated.rate * 100)}%: ${reason || ''}`
       );
       res.json({
         success: true,
-        message: `Đã cập nhật tỷ lệ chiết khấu CleanNova thành ${Math.round(updated.rate * 100)}% (${updated.rate}).`,
+        message: `Đã cập nhật tỷ lệ chiết khấu DabClean thành ${Math.round(updated.rate * 100)}% (${updated.rate}).`,
         data: updated
       });
     } catch (err) {
@@ -342,6 +350,9 @@ const adminController = {
       }
       if (!['pending', 'assigned'].includes(booking.status)) {
         return res.status(409).json({ success: false, message: 'Không thể thay đổi nhân viên sau khi công việc đã được tiếp nhận hoặc bắt đầu.' });
+      }
+      if (db.demo?.features.hasPendingPrebook(booking)) {
+        return res.status(409).json({ success: false, message: 'Lịch đặt trước đang chờ phản hồi hoặc lựa chọn của khách hàng.' });
       }
 
       let staffName = 'Chưa phân công';

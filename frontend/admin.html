@@ -9,6 +9,7 @@
   <link rel="stylesheet" href="app.css">
   <link rel="stylesheet" href="css/realtime-notification.css">
   <script src="api.js"></script>
+  <script defer src="js/admin-finance-export.js"></script>
   <style>
     .admin-navbar {
       background: var(--color-white);
@@ -443,7 +444,7 @@
     <div class="container">
 
       <!-- Thông báo alert -->
-      <div id="admin-alert" class="alert" style="display: none; margin-bottom: var(--space-xl);" role="alert"></div>
+      <div id="admin-alert" class="alert viewport-alert" style="display: none;" role="alert"></div>
 
       <!-- ============================================================
            DASHBOARD HEADER, BỘ LỌC THỜI GIAN & CẤU HÌNH CHIẾT KHẤU
@@ -460,6 +461,9 @@
             </p>
           </div>
           <div style="display: flex; align-items: center; gap: 8px; flex-wrap: wrap;">
+            <button type="button" class="btn btn-outline btn-sm" id="export-finance-excel" disabled>Tải Excel</button>
+            <button type="button" class="btn btn-outline btn-sm" id="export-finance-pdf" disabled>In / Lưu PDF</button>
+            <a href="demo-features.html" id="demo-operations-link" hidden>Khiếu nại / Hồ sơ đối tác</a>
             <button type="button" class="btn btn-outline btn-sm" id="btn-open-commission-modal" style="border-color: #818CF8; color: #4338CA; font-weight: 700; display: inline-flex; align-items: center; gap: 6px;">
               ⚙️ Cấu Hình Chiết Khấu NV (<span id="btn-commission-badge">20%</span>)
             </button>
@@ -1708,12 +1712,13 @@
 
       // Utility hiển thị thông báo
       const alertBox = document.getElementById('admin-alert');
+      let alertTimer;
       function showAlert(type, message) {
-        alertBox.className = `alert alert-${type}`;
+        alertBox.className = `alert viewport-alert alert-${type}`;
         alertBox.textContent = message;
         alertBox.style.display = 'block';
-        window.scrollTo({ top: 0, behavior: 'smooth' });
-        setTimeout(() => { alertBox.style.display = 'none'; }, 5000);
+        clearTimeout(alertTimer);
+        alertTimer = setTimeout(() => { alertBox.style.display = 'none'; }, 5000);
       }
 
       // Hàm escape HTML chống tấn công Stored XSS
@@ -1788,12 +1793,17 @@
       // ------------------------------------------------------------
       // 1. TẢI THỐNG KÊ DASHBOARD (10 CHỈ SỐ MINH BẠCH & SỔ CÁI NGÀY)
       // ------------------------------------------------------------
+      let statsRequestId = 0;
       async function loadStats(customParams = null) {
+        const requestId = ++statsRequestId;
+        window.dispatchEvent(new CustomEvent('admin-finance-stats'));
         try {
           if (customParams) {
             currentStatsFilter = { ...currentStatsFilter, ...customParams };
           }
           const res = await DabCleanAPI.admin.getStats(currentStatsFilter);
+          if (requestId !== statsRequestId) return;
+          document.getElementById('demo-operations-link').hidden = res.demo_features !== true;
           const s = res.data || {};
 
           // Cập nhật nhãn khoảng thời gian
@@ -1807,6 +1817,9 @@
               badgeEl.textContent = `Phạm vi: ${currentStatsFilter.from_date} đến ${currentStatsFilter.to_date}`;
             }
           }
+          window.dispatchEvent(new CustomEvent('admin-finance-stats', {
+            detail: { stats: s, period: badgeEl?.textContent || '' }
+          }));
 
           // 1. Tiền khách đã trả (Gross Payments)
           const grossPay = Number(s.gross_payments !== undefined ? s.gross_payments : (s.collected_revenue || s.total_revenue || 0));
@@ -2684,7 +2697,7 @@
         const wrapReason = document.getElementById('wrap-edit-user-lock-reason');
         if (this.value === 'inactive') {
           wrapReason.style.display = 'block';
-          document.getElementById('edit-user-lock-reason-input').focus();
+          document.getElementById('edit-user-lock-reason-input').focus({ preventScroll: true });
         } else {
           wrapReason.style.display = 'none';
         }
@@ -2703,7 +2716,7 @@
 
         if (status === 'inactive' && !lock_reason) {
           alert('Vui lòng nhập lý do khi khóa tài khoản!');
-          document.getElementById('edit-user-lock-reason-input').focus();
+          document.getElementById('edit-user-lock-reason-input').focus({ preventScroll: true });
           return;
         }
 
@@ -2848,7 +2861,7 @@
         document.getElementById('lock-target-user-email').textContent = email || '';
         document.getElementById('lock-reason-input').value = '';
         document.getElementById('modal-lock-user').style.display = 'flex';
-        setTimeout(() => document.getElementById('lock-reason-input').focus(), 150);
+        setTimeout(() => document.getElementById('lock-reason-input').focus({ preventScroll: true }), 150);
       }
       window.openLockModal = openLockModal;
 

@@ -551,7 +551,7 @@ const CommissionPaymentModel = {
    * - Chưa xác định (fault: 'unclear'): chuyển sang trạng thái pending_review
    */
   async handleCancellationRefund({ bookingId, cancelReason = '', fault = 'unclear', adminId = null }) {
-    if (db.demo) return db.demo.cancellation({ bookingId, fault });
+    if (db.demo) return db.demo.cancellation({ bookingId, cancelReason, fault });
     const pool = db.getPool();
     if (!pool || !db.isMySQLConnected()) {
       const err = new Error('Hệ thống cơ sở dữ liệu hiện không khả dụng để xử lý hoàn tiền chiết khấu.');

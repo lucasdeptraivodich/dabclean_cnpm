@@ -280,6 +280,7 @@
   </header>
 
   <main class="booking-care-wrap">
+    <section id="staff-choice" class="staff-directory-panel" hidden></section>
     <div class="booking-care-grid">
       <!-- FORM ĐẶT LỊCH CHĂM SÓC -->
       <div class="care-form-card">
@@ -483,6 +484,7 @@
   </footer>
 
   <script src="api.js"></script>
+  <script defer src="js/staff-directory.js"></script>
   <script>
     // Xử lý logic đặt lịch chăm sóc & tính giá trực tiếp từ backend
     document.addEventListener('DOMContentLoaded', () => {
@@ -546,6 +548,7 @@
 
       // 4. Báo giá trực tiếp từ backend
       async function fetchQuote() {
+        const token = window.DabCleanAPI.auth.getToken();
         const serviceId = parseInt(serviceSelect.value, 10);
         const packageType = document.querySelector('input[name="package_type"]:checked').value;
         const durationHours = packageType === 'hourly' ? parseFloat(document.getElementById('care-duration-hours').value) : null;
@@ -554,7 +557,7 @@
         try {
           const res = await fetch('/api/bookings/quote', {
             method: 'POST',
-            headers: { 'Content-Type': 'application/json' },
+            headers: { 'Content-Type': 'application/json', ...(token && { Authorization: `Bearer ${token}` }) },
             body: JSON.stringify({
               service_id: serviceId,
               package_type: packageType,
@@ -614,7 +617,7 @@
         alertBox.style.display = 'none';
 
         // Kiểm tra đăng nhập
-        const token = (window.DabCleanAPI || window.CleanovaAPI).auth.getToken();
+        const token = window.DabCleanAPI.auth.getToken();
         if (!token) {
           const returnUrl = encodeURIComponent(window.location.pathname + window.location.search);
           showAlert('Vui lòng đăng nhập tài khoản trước khi đặt lịch dịch vụ.');
@@ -642,6 +645,14 @@
         const paymentMethod = document.getElementById('care-payment').value;
 
         try {
+          const directory = window.DabCleanStaffDirectory;
+          const preferredStaff = directory?.preferredId();
+          const prebook = await directory?.choosePrebooking(preferredStaff);
+          if (prebook === null) {
+            submitBtn.disabled = false;
+            submitBtn.textContent = 'Xác nhận đặt lịch ngay';
+            return;
+          }
           const res = await fetch('/api/bookings', {
             method: 'POST',
             headers: {
@@ -661,12 +672,18 @@
               address: address,
               phone: phone,
               discount_code: promoCode || null,
-              payment_method: paymentMethod
+              payment_method: paymentMethod,
+              preferred_staff_id: preferredStaff,
+              prebook: prebook === true
             })
           });
 
           const data = await res.json();
           if (res.ok && data.success) {
+            if (data.data?.prebook) {
+              window.location.href = `demo-features.html?order=${encodeURIComponent(data.data.id)}`;
+              return;
+            }
             if (data.data?.payment_method === 'bank_transfer' && window.DabCleanBookingQr.open(data.data)) return;
             showAlert('Đặt lịch chăm sóc thành công! Mã đơn: ' + data.data.booking_code, true);
             setTimeout(() => {

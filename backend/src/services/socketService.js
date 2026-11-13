@@ -192,11 +192,17 @@ function notifyBooking(bookingId, eventName, data) {
   io.emit('booking_event', { bookingId, eventName, data, timestamp: new Date().toISOString() });
 }
 
+function notifyDemoFeaturesChanged(userIds) {
+  const rooms = [...new Set(userIds.filter(id => Number.isSafeInteger(id) && id > 0))].map(id => `user_${id}`);
+  if (rooms.length) io?.to(rooms).emit('demo_features_changed');
+}
+
 module.exports = {
   initSocket,
   getIO,
   notifyUser,
   notifyRole,
   notifyAll,
-  notifyBooking
+  notifyBooking,
+  notifyDemoFeaturesChanged
 };

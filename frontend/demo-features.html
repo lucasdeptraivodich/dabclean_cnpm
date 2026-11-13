@@ -1,0 +1,35 @@
+<!doctype html>
+<html lang="vi">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width,initial-scale=1">
+  <title>Tính năng demo | DabClean</title>
+  <link rel="stylesheet" href="css/demo-features.css">
+  <script defer src="api.js"></script>
+  <script defer src="/socket.io/socket.io.js"></script>
+  <script defer src="js/demo-features.js"></script>
+</head>
+<body>
+  <main>
+    <header>
+      <a id="back" href="/">Về trang chủ</a>
+      <h1>Tính năng demo DabClean</h1>
+      <p>Dữ liệu mẫu được xóa khi khởi động lại. Thanh toán, xác minh danh tính và vị trí phân ca đều là mô phỏng.</p>
+    </header>
+    <p id="notice" role="status" aria-live="polite"></p>
+    <section id="membership" hidden></section>
+    <section id="identity" hidden></section>
+    <section id="finance" hidden></section>
+    <section id="offers" hidden></section>
+    <section id="staff-trust" hidden></section>
+    <section id="booking" hidden>
+      <label for="order">Đơn đặt lịch</label>
+      <select id="order"></select>
+      <p id="order-summary"></p>
+      <p id="live-position"></p>
+      <ul id="messages" aria-label="Tin nhắn"></ul>
+      <div id="actions"></div>
+    </section>
+  </main>
+</body>
+</html>

@@ -1,5 +1,5 @@
 // ============================================================
-// CLEANOVA - TEST SUITE: TWO-WALLET SYSTEM FOR STAFF (CLEANOVA MODEL)
+// DabClean - TEST SUITE: TWO-WALLET SYSTEM FOR STAFF (DabClean MODEL)
 // Kiểm thử toàn diện 13 kịch bản bắt buộc:
 // 1. Đơn tiền mặt 200k, CK 40k: trừ ví tín dụng 40k, ví thu nhập không đổi.
 // 2. Đơn trực tuyến 200k, CK 40k: trừ ví tín dụng 40k, ví thu nhập +160k.
@@ -68,13 +68,10 @@ async function getWalletBal(walletId) {
 
 async function runTwoWalletTestSuite() {
   console.log('============================================================');
-  console.log('💼 CLEANOVA: TEST SUITE HỆ THỐNG HAI VÍ NHÂN VIÊN CLEANOVA');
+  console.log('💼 DabClean: TEST SUITE HỆ THỐNG HAI VÍ NHÂN VIÊN DabClean');
   console.log('============================================================\n');
 
-  for (let i = 0; i < 20; i++) {
-    if (pool.isMySQLConnected()) break;
-    await new Promise(r => setTimeout(r, 100));
-  }
+  await pool.initDatabase();
 
   let passed = 0;
   let failed = 0;
@@ -498,7 +495,7 @@ async function runTwoWalletTestSuite() {
       s.staff_earnings_balance_total !== undefined &&
       s.staff_credit_topup_total !== undefined &&
       s.staff_interwallet_transfer_total !== undefined,
-      '12.2. Admin stats cung cấp đủ 6 chỉ số Quản trị Hai Ví Nhân Viên CleanNova',
+      '12.2. Admin stats cung cấp đủ 6 chỉ số Quản trị Hai Ví Nhân Viên DabClean',
       {
         creditTotal: s.staff_credit_balance_total,
         creditDebt: s.staff_credit_debt_total,

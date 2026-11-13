@@ -1,4 +1,4 @@
-# Ghi nhớ dự án DabClean / CleanNova
+# Ghi nhớ dự án DabClean
 
 Cập nhật: 2026-10-29. Nguồn: khảo sát mã nguồn tại `D:/Documents/DabClean` theo yêu cầu chủ dự án. Đây là bản đồ dự án phục vụ các lần làm việc tiếp theo, không phải báo cáo nghiệm thu hay audit bảo mật đầy đủ. Đọc lại code và git diff trước khi sửa vì thông tin có thể thay đổi.
 
@@ -17,7 +17,7 @@ Cập nhật: 2026-10-29. Nguồn: khảo sát mã nguồn tại `D:/Documents/D
 
 ## Quy tắc làm việc
 
-- Đọc và tuân thủ `AGENTS.md` ở gốc và `.agents/skills/cleannova-engineer/SKILL.md`.
+- Đọc và tuân thủ `AGENTS.md` ở gốc và `.agents/skills/DabClean-engineer/SKILL.md`.
 - Ưu tiên tính đúng đắn, bảo mật, dữ liệu nhất quán và kiểm thử có thể tái lập.
 - Không tự thay đổi giá, nghiệp vụ, state machine, API hoặc schema ngoài yêu cầu. Quy tắc nghiệp vụ chưa rõ cần được chủ dự án xác nhận.
 - Không dùng kết quả in-memory để khẳng định MySQL đúng; không tuyên bố pass khi chưa chạy test.
@@ -26,7 +26,7 @@ Cập nhật: 2026-10-29. Nguồn: khảo sát mã nguồn tại `D:/Documents/D
 ## Sản phẩm và kiến trúc
 
 - Website đặt và quản lý dịch vụ vệ sinh; còn có dịch vụ chăm sóc trẻ em, người cao tuổi, bệnh nhân và vệ sinh sau xây dựng.
-- Tên DabClean và CleanNova cùng tồn tại trong tài liệu, API adapter, database và mã nguồn; không tự đổi tên hàng loạt.
+- DabClean là tên thương hiệu hiển thị. Tên schema, khóa phiên cũ và thông tin đăng nhập mẫu là các định danh kỹ thuật.
 - Bốn nhóm truy cập: guest, customer, staff, admin. Guest là trạng thái chưa đăng nhập.
 - Frontend: HTML/CSS/Vanilla JavaScript trong `frontend/`, không có package.json riêng ở thư mục này.
 - Backend: Node.js/CommonJS, Express 4, MySQL2, JWT, bcryptjs, Multer, Socket.IO.

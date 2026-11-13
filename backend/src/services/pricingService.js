@@ -42,7 +42,7 @@ const defaultPostConstructionRates = {
     standard_price: 450000,
     staff_daily_wage: 320000,
     includes_equipment: true,
-    description: 'Mức giá tham khảo bao gồm máy móc và hóa chất cơ bản theo chính sách CleanNova'
+    description: 'Mức giá tham khảo bao gồm máy móc và hóa chất cơ bản theo chính sách DabClean'
   },
   surcharges: {
     severe_stains: { rate: 0.10, label: 'Vết sơn, xi măng, keo bám nặng (+10%)' },
@@ -67,7 +67,7 @@ const pricingService = {
   standardAddons,
 
   /**
-   * Tính toán chiết khấu hoa hồng CleanNova từ tiền công nhân viên
+   * Tính toán chiết khấu hoa hồng DabClean từ tiền công nhân viên
    * platform_commission = employee_gross_earnings * commission_rate
    * employee_net_earnings = employee_gross_earnings - platform_commission
    */
@@ -223,7 +223,7 @@ const pricingService = {
                      (dirt_severity === 'heavy') ? Math.round(stdPrice * 1.25) : stdPrice;
         } else {
           requiresSurvey = true;
-          surveyReason = `Diện tích căn hộ ${parsedArea}m² nằm ngoài khoảng trọn gói tiêu chuẩn (60–100 m²). CleanNova sẽ cử kỹ thuật viên tới khảo sát trực tiếp.`;
+          surveyReason = `Diện tích căn hộ ${parsedArea}m² nằm ngoài khoảng trọn gói tiêu chuẩn (60–100 m²). DabClean sẽ cử kỹ thuật viên tới khảo sát trực tiếp.`;
           subtotal = parsedArea < (pkg.min_area || 60) ? quoteMinPrice : Math.round(parsedArea * 25000);
         }
       } else if (building_type === 'townhouse') {
@@ -259,7 +259,7 @@ const pricingService = {
         quoteMaxPrice = 20000000;
         subtotal = Math.round(parsedArea * 15000);
         requiresSurvey = true;
-        surveyReason = 'Công trình đặc thù (nhà xưởng/văn phòng/khác) bắt buộc kỹ thuật viên CleanNova khảo sát mặt bằng trước khi chốt giá trọn gói.';
+        surveyReason = 'Công trình đặc thù (nhà xưởng/văn phòng/khác) bắt buộc kỹ thuật viên DabClean khảo sát mặt bằng trước khi chốt giá trọn gói.';
       }
 
       appliedUnitRate = subtotal;
@@ -318,6 +318,7 @@ const pricingService = {
       throw error;
     }
 
+    if (!normalizedPromo) discountAmount = Math.max(discountAmount, Math.round(subtotal * (options.membership_rate || 0)));
     const totalPrice = Math.max(subtotal - discountAmount, 0);
     const commission = this.calculateCommission(staffWage, options.commission_rate);
 
@@ -492,6 +493,7 @@ const pricingService = {
       throw error;
     }
 
+    if (!normalizedPromo) discountAmount = Math.max(discountAmount, subtotal * (options.membership_rate || 0));
     const minFloor = isCareService ? (subtotal * 0.5) : 50000;
     const totalPrice = Math.max(subtotal - discountAmount, minFloor);
     const commission = this.calculateCommission(staffWage, options.commission_rate);

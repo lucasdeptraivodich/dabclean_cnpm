@@ -462,7 +462,11 @@ const BookingModel = {
     const counts = (countsRows && countsRows[0]) || {};
 
     // 2. Thống kê tài chính & đơn đặt lịch theo khoảng thời gian được lọc
-    const finRows = await db.query(
+    const demoBounds = {
+      from: dateCondition.includes('>=') ? dateParams[0] : undefined,
+      to: dateCondition.includes('<=') ? dateParams.at(-1) : undefined
+    };
+    const finRows = db.demo ? db.demo.features.finance(demoBounds) : await db.query(
       `SELECT 
         COUNT(*) AS total_bookings,
         SUM(CASE WHEN b.payment_status = 'paid' THEN 1 ELSE 0 END) AS paid_bookings_count,
@@ -489,7 +493,7 @@ const BookingModel = {
         -- 4. Tiền công gộp của nhân viên trước khấu trừ (Staff Gross Wages)
         IFNULL(SUM(CASE WHEN b.status = 'completed' OR b.wage_status = 'paid' THEN b.staff_wage ELSE 0 END), 0) AS staff_gross_wages,
 
-        -- 5. Chiết khấu/hoa hồng CleanNova (Platform Commission)
+        -- 5. Chiết khấu/hoa hồng DabClean (Platform Commission)
         IFNULL(SUM(CASE WHEN b.status = 'completed' OR b.wage_status = 'paid' THEN b.platform_commission ELSE 0 END), 0) AS platform_commission,
 
         -- 6. Tiền công thực nhận của nhân viên (Staff Net Wages)
@@ -517,7 +521,7 @@ const BookingModel = {
     const platformProfit = Math.round(netReceipts - staffNet);
 
     // 3. Chuỗi thời gian (Daily Breakdown) phục vụ biểu đồ và đối soát
-    const dailyRows = await db.query(
+    const dailyRows = db.demo ? db.demo.features.finance({ ...demoBounds, daily: true }) : await db.query(
       `SELECT 
         DATE_FORMAT(b.created_at, '%Y-%m-%d') AS date,
         COUNT(*) AS booking_count,
@@ -555,7 +559,7 @@ const BookingModel = {
       };
     });
 
-    // 4. Lấy cấu hình tỷ lệ hoa hồng CleanNova hiện hành
+    // 4. Lấy cấu hình tỷ lệ hoa hồng DabClean hiện hành
     let currentCommissionRate = 0.20;
     try {
       const sysConfigs = await db.query("SELECT config_value FROM system_configs WHERE config_key = 'staff_commission_rate' LIMIT 1");
@@ -586,7 +590,7 @@ const BookingModel = {
       payment_fees: 0,
       platform_profit: platformProfit,
 
-      // Trạng thái hai ví nhân viên CleanNova
+      // Trạng thái hai ví nhân viên DabClean
       staff_credit_balance_total: Math.round(parseFloat(counts.staff_credit_balance_total) || 0),
       staff_credit_debt_total: Math.round(parseFloat(counts.staff_credit_debt_total) || 0),
       staff_negative_credit_count: parseInt(counts.staff_negative_credit_count, 10) || 0,
@@ -660,7 +664,7 @@ const BookingModel = {
     return result.affectedRows > 0;
   },
 
-  // Lấy cấu hình tỷ lệ chiết khấu CleanNova
+  // Lấy cấu hình tỷ lệ chiết khấu DabClean
   async getCommissionConfig() {
     const rows = await db.query(
       "SELECT config_key, config_value, description, updated_at FROM system_configs WHERE config_key = 'staff_commission_rate' LIMIT 1"
@@ -670,7 +674,7 @@ const BookingModel = {
       return {
         key: 'staff_commission_rate',
         rate: parseFloat(cfg.rate) || 0.20,
-        description: rows[0].description || cfg.description || 'Tỷ lệ chiết khấu CleanNova',
+        description: rows[0].description || cfg.description || 'Tỷ lệ chiết khấu DabClean',
         updated_reason: cfg.updated_reason || '',
         updated_at: rows[0].updated_at
       };
@@ -678,13 +682,13 @@ const BookingModel = {
     return {
       key: 'staff_commission_rate',
       rate: 0.20,
-      description: 'Tỷ lệ chiết khấu CleanNova mặc định (20%)',
+      description: 'Tỷ lệ chiết khấu DabClean mặc định (20%)',
       updated_reason: 'Mặc định hệ thống',
       updated_at: null
     };
   },
 
-  // Cập nhật cấu hình tỷ lệ chiết khấu CleanNova (Admin)
+  // Cập nhật cấu hình tỷ lệ chiết khấu DabClean (Admin)
   async updateCommissionConfig(rate, reason, adminId) {
     const parsedRate = parseFloat(rate);
     if (isNaN(parsedRate) || parsedRate < 0 || parsedRate > 1) {
@@ -700,7 +704,7 @@ const BookingModel = {
     });
     await db.query(
       `INSERT INTO system_configs (config_key, config_value, description, updated_by)
-       VALUES ('staff_commission_rate', ?, 'Tỷ lệ chiết khấu CleanNova khấu trừ từ tiền công nhân viên', ?)
+       VALUES ('staff_commission_rate', ?, 'Tỷ lệ chiết khấu DabClean khấu trừ từ tiền công nhân viên', ?)
        ON DUPLICATE KEY UPDATE config_value = VALUES(config_value), updated_by = VALUES(updated_by)`,
       [configValue, adminId]
     );

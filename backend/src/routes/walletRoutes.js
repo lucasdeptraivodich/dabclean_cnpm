@@ -21,10 +21,10 @@ router.get('/my', walletController.getMyWallet);
 // 2. Khách hàng: Lấy lịch sử giao dịch ví (phân trang + lọc loại giao dịch)
 router.get('/transactions', walletController.getMyTransactions);
 
-// 3. Khách hàng: Nạp tiền vào ví CleanNova (Sandbox)
+// 3. Khách hàng: Nạp tiền vào ví DabClean (Sandbox)
 router.post('/topup', walletController.topupSandbox);
 
-// 4. Khách hàng: Thanh toán đơn đặt dịch vụ bằng ví CleanNova
+// 4. Khách hàng: Thanh toán đơn đặt dịch vụ bằng ví DabClean
 router.post('/pay-booking', walletController.payBooking);
 
 // 5. Quản trị viên (Admin): Xem danh sách ví toàn hệ thống

@@ -1,5 +1,5 @@
 // ============================================================
-// CLEANOVA - TEST SUITE: STAFF WALLET, COMMISSION & ADMIN REVENUE
+// DabClean - TEST SUITE: STAFF WALLET, COMMISSION & ADMIN REVENUE
 // Theo yêu cầu BIG UPDATE: Kiểm thử công thức chiết khấu,
 // chống ghi trùng, luồng ví nhân viên, và 10 chỉ số doanh thu admin.
 // ============================================================
@@ -42,10 +42,7 @@ async function runTestSuite() {
   console.log('🧪 BẮT ĐẦU KIỂM THỬ: STAFF WALLET COMMISSION & ADMIN REVENUE');
   console.log('============================================================\n');
 
-  for (let i = 0; i < 20; i++) {
-    if (pool.isMySQLConnected()) break;
-    await new Promise(r => setTimeout(r, 100));
-  }
+  await pool.initDatabase();
 
   let passed = 0;
   let failed = 0;
@@ -231,7 +228,7 @@ async function runTestSuite() {
   const custId = customerUser.id;
 
   // Đơn hàng: Tiền khách 300.000 VNĐ, tiền công gộp 200.000 VNĐ, tỷ lệ 20%
-  // Khấu trừ CleanNova = 40.000 VNĐ, Tiền thực nhận = 160.000 VNĐ
+  // Khấu trừ DabClean = 40.000 VNĐ, Tiền thực nhận = 160.000 VNĐ
   const insertBooking = await pool.query(
     `INSERT INTO bookings (
       booking_code, user_id, staff_id, service_id, status, payment_status, payment_method,

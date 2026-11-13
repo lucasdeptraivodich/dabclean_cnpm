@@ -89,7 +89,7 @@ const WalletModel = {
    * Nạp tiền vào ví (Chế độ Sandbox / Gateway Verified Callback)
    * Đảm bảo tính Idempotency và ghi sổ cái bất biến (Double-entry ledger)
    */
-  async topup({ userId, amount, idempotencyKey = null, description = 'Nạp tiền vào ví CleanNova (Sandbox)', referenceType = 'sandbox', referenceId = null }) {
+  async topup({ userId, amount, idempotencyKey = null, description = 'Nạp tiền vào ví DabClean (Sandbox)', referenceType = 'sandbox', referenceId = null }) {
     if (db.demo) return db.demo.topup({ userId, amount, idempotencyKey });
     const parsedAmount = parseFloat(amount);
     if (isNaN(parsedAmount) || parsedAmount <= 0) {
@@ -272,7 +272,7 @@ const WalletModel = {
         `INSERT INTO wallet_transactions 
          (transaction_code, wallet_id, user_id, type, amount, balance_before, balance_after, status, description, reference_type, reference_id, idempotency_key)
          VALUES (?, ?, ?, 'payment', ?, ?, ?, 'completed', ?, 'booking', ?, ?)`,
-        [txnCode, wallet.id, userId, amountToPay, balanceBefore, balanceAfter, `Thanh toán đơn dịch vụ CleanNova #${booking.booking_code}`, String(booking.id), idempotencyKey]
+        [txnCode, wallet.id, userId, amountToPay, balanceBefore, balanceAfter, `Thanh toán đơn dịch vụ DabClean #${booking.booking_code}`, String(booking.id), idempotencyKey]
       );
       const transactionId = txResult.insertId;
 
@@ -498,7 +498,7 @@ const WalletModel = {
   },
 
   /**
-   * Kiểm tra điều kiện nhận đơn của nhân viên theo chính sách Ví Tín Dụng CleanNova:
+   * Kiểm tra điều kiện nhận đơn của nhân viên theo chính sách Ví Tín Dụng DabClean:
    * Nhân viên được phép nhận đơn khi số dư ví tín dụng bằng hoặc lớn hơn 100.000 VNĐ.
    * Điều kiện bắt buộc: creditBalance >= 100000.
    */
@@ -606,7 +606,7 @@ const WalletModel = {
    * Nạp tiền vào Ví Tín Dụng đối tác (Credit Wallet Topup)
    * Nếu số dư ví tín dụng đang âm, tiền nạp tự động bù khoản âm trước khi tạo số dư dương
    */
-  async topupCreditWallet({ staffId, amount, idempotencyKey = null, description = 'Nạp tiền vào Ví tín dụng CleanNova', referenceType = 'sandbox_topup', referenceId = null }) {
+  async topupCreditWallet({ staffId, amount, idempotencyKey = null, description = 'Nạp tiền vào Ví tín dụng DabClean', referenceType = 'sandbox_topup', referenceId = null }) {
     if (db.demo) return db.demo.topup({ staffId, amount, idempotencyKey }, true);
     if (referenceType === 'sandbox_staff_credit' || referenceType === 'staff_direct') {
       const error = new Error('Chức năng nạp tiền chủ động vào Ví Tín Dụng đã bị vô hiệu hóa.');
@@ -723,7 +723,7 @@ const WalletModel = {
   /**
    * Chuyển tiền từ Ví Thu Nhập sang Ví Tín Dụng (Inter-wallet Transfer)
    * Kiểm tra số dư khả dụng, ghi nhận bút toán kép trong 1 transaction duy nhất,
-   * rollback toàn bộ nếu có lỗi, và tuyệt đối không tạo doanh thu giả cho CleanNova.
+   * rollback toàn bộ nếu có lỗi, và tuyệt đối không tạo doanh thu giả cho DabClean.
    */
   async transferEarningsToCredit({ staffId, amount, idempotencyKey = null, note = null }) {
     if (db.demo) return db.demo.transfer({ staffId, amount, idempotencyKey });
@@ -858,16 +858,16 @@ const WalletModel = {
   },
 
   /**
-   * Quyết toán thù lao và chiết khấu hai ví nhân viên CleanNova:
+   * Quyết toán thù lao và chiết khấu hai ví nhân viên DabClean:
    * 
    * Trường hợp A (Khách thanh toán tiền mặt):
    * - Nhân viên đã giữ trực tiếp toàn bộ tiền mặt từ khách.
-   * - Ví tín dụng: Trừ khoản chiết khấu CleanNova (platform_commission). Cho phép âm số dư nếu không đủ.
+   * - Ví tín dụng: Trừ khoản chiết khấu DabClean (platform_commission). Cho phép âm số dư nếu không đủ.
    * - Ví thu nhập: KHÔNG thay đổi, tránh đúp thu nhập.
    * 
    * Trường hợp B (Khách thanh toán trực tuyến):
-   * - CleanNova thu tiền khách hàng.
-   * - Ví tín dụng: Trừ khoản chiết khấu CleanNova (platform_commission).
+   * - DabClean thu tiền khách hàng.
+   * - Ví tín dụng: Trừ khoản chiết khấu DabClean (platform_commission).
    * - Ví thu nhập: CỘNG thù lao thực nhận (staff_net_wage).
    * 
    * Đảm bảo tính Idempotency: Không trừ chiết khấu và không cộng thù lao 2 lần cho cùng một đơn.
@@ -1017,7 +1017,7 @@ const WalletModel = {
       let wageTxnCode = null;
 
       if (!isCashPayment) {
-        // TRƯỜNG HỢP B: Đơn trực tuyến (CleanNova thu tiền) -> Cộng phần thực nhận vào Ví Thu Nhập
+        // TRƯỜNG HỢP B: Đơn trực tuyến (DabClean thu tiền) -> Cộng phần thực nhận vào Ví Thu Nhập
         earningsAfter = earningsBefore + netWage;
         await connection.query('UPDATE wallets SET balance = ? WHERE id = ?', [earningsAfter, earningsWallet.id]);
 

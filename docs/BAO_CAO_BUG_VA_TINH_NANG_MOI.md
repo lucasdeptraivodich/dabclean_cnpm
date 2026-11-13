@@ -1,6 +1,6 @@
-# BÁO CÁO TỔNG HỢP BUG & ĐỀ XUẤT TÍNH NĂNG MỚI (CLEANOVA / DABCLEAN)
+# BÁO CÁO TỔNG HỢP BUG & ĐỀ XUẤT TÍNH NĂNG MỚI (DabClean)
 **Mã tài liệu:** `REPORT-BUG-FEATURE-2026-11`  
-**Dự án:** CleanNova (DabClean) — Nền tảng dịch vụ vệ sinh và chăm sóc gia đình  
+**Dự án:** DabClean — Nền tảng dịch vụ vệ sinh và chăm sóc gia đình
 **Phạm vi rà soát:** Toàn bộ hệ thống (Frontend, Backend API, Database, Authentication & RBAC, AI Module, Realtime & Navigation, Test Suites)  
 **Thời điểm thực hiện:** Tháng 11/2026  
 
@@ -26,7 +26,7 @@
 
 ## 1. TỔNG QUAN HIỆN TRẠNG HỆ THỐNG
 
-Dự án **CleanNova (DabClean)** đã hoàn tất một số khối tính năng quan trọng sau đợt Big Update:
+Dự án **DabClean** đã hoàn tất một số khối tính năng quan trọng sau đợt Big Update:
 - **Core Business:** Dịch vụ dọn dẹp theo giờ, định kỳ, chăm sóc gia đình (trẻ nhỏ, người cao tuổi, người bệnh) và vệ sinh công nghiệp sau xây dựng (tính theo $m^2$).
 - **Ví & Tài chính:** Tách bạch hệ thống 2 ví cho nhân viên (Ví Tín Dụng ký quỹ chiết khấu và Ví Thu Nhập rút tiền), sổ cái 2 dòng (Double-entry ledger), thanh toán và hoàn tiền qua ví.
 - **Bản đồ & Định vị:** Tích hợp CARTO tiles, ArcGIS Geocoding và chỉ dẫn định vị dành cho thợ.
@@ -93,9 +93,9 @@ Tuy nhiên, qua audit mã nguồn và chạy các bộ test hồi quy thực t�
 - **Hiện tượng:** Khi người dùng chọn ghim vị trí qua bản đồ GPS, sau đó sửa lại số nhà trong ô input text, trạng thái ghim vị trí chưa tự động reset cờ xác nhận hoặc geocode lại, dễ gây bất nhất giữa địa chỉ chữ và tọa độ GPS lưu về hệ thống.
 - **Giải pháp:** Bổ sung lắng nghe sự kiện `input` trên trường địa chỉ để xóa tọa độ cũ và kích hoạt debounce gợi ý lại vị trí tương ứng.
 
-#### BUG-08: Rải rác tên thương hiệu DabClean và CleanNova trong giao diện
-- **Vị trí:** Một số thẻ email mẫu, footer và thông báo pop-up vẫn ghi lẫn lộn "DabClean" và "CleanNova".
-- **Giải pháp:** Đưa tên hiển thị về một biến cấu hình duy nhất ở frontend `APP_BRAND_NAME = "CleanNova"` để đảm bảo tính nhất quán của bộ nhận diện thương hiệu.
+#### BUG-08: Tên thương hiệu chưa nhất quán trong giao diện
+- **Vị trí:** Một số thẻ email mẫu, footer và thông báo pop-up từng sử dụng nhiều tên thương hiệu.
+- **Giải pháp:** Đưa tên hiển thị về một biến cấu hình duy nhất ở frontend `APP_BRAND_NAME = "DabClean"` để đảm bảo tính nhất quán của bộ nhận diện thương hiệu.
 
 ---
 
@@ -110,13 +110,13 @@ Tuy nhiên, qua audit mã nguồn và chạy các bộ test hồi quy thực t�
 | **BUG-05** | Thiếu thư viện `linkedom` ở `ai-module` | **MEDIUM** | `ai-module/package.json` | Cài đặt `linkedom` vào `devDependencies` |
 | **BUG-06** | Test ném `ECONNREFUSED` vì thiếu auto-spawn | **MEDIUM** | Các file `test-*.js` | Bổ sung pre-test check server runner |
 | **BUG-07** | Lệch tọa độ khi sửa ô nhập địa chỉ | **LOW** | `frontend/js/booking-location.js` | Bắt sự kiện text input để invalidate tọa độ cũ |
-| **BUG-08** | Lẫn lộn thương hiệu DabClean & CleanNova | **LOW** | Frontend HTML / JS | Quy chuẩn qua hằng số `APP_BRAND_NAME` |
+| **BUG-08** | Tên thương hiệu chưa nhất quán | **LOW** | Frontend HTML / JS | Quy chuẩn qua hằng số `APP_BRAND_NAME` |
 
 ---
 
 ## 3. DANH SÁCH NHỮNG TÍNH NĂNG CẦN BỔ SUNG & NÂNG CẤP
 
-Để CleanNova phát triển từ một phiên bản thử nghiệm nghiệp vụ thành một nền tảng vận hành quy mô lớn, dưới đây là các tính năng thiết yếu cần bổ sung chia theo từng phân hệ:
+Để DabClean phát triển từ một phiên bản thử nghiệm nghiệp vụ thành một nền tảng vận hành quy mô lớn, dưới đây là các tính năng thiết yếu cần bổ sung chia theo từng phân hệ:
 
 ---
 
@@ -220,4 +220,4 @@ Dưới đây là các kết quả kiểm thử đã được chạy và xác mi
 - **`backend/test-booking-location.js`:** **FAIL 2/6 ca** (Nguyên nhân: `bookingModel.js` và `bookingController.js` chưa tích hợp 3 tham số GPS như bộ test yêu cầu - Đã đưa vào `BUG-04` để xử lý).
 
 ---
-*Báo cáo được khởi tạo và lưu trữ phục vụ tài liệu kỹ thuật phát triển CleanNova.*
+*Báo cáo được khởi tạo và lưu trữ phục vụ tài liệu kỹ thuật phát triển DabClean.*

@@ -101,10 +101,7 @@ async function runCommissionTestSuite() {
   console.log('🏦 DABCLEAN: TEST SUITE MÔ HÌNH THANH TOÁN CHIẾT KHẤU NHẬN ĐƠN');
   console.log('============================================================\n');
 
-  for (let i = 0; i < 30; i++) {
-    if (db.isMySQLConnected()) break;
-    await new Promise(r => setTimeout(r, 100));
-  }
+  await db.initDatabase();
 
   let passed = 0;
   let failed = 0;

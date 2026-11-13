@@ -7,14 +7,16 @@
 Trong thư mục `backend/` của dự án, cài dependency bằng `npm ci` nếu chưa cài, rồi chạy:
 
 ```powershell
-node server.js
+npm run demo
 ```
 
 Mở `http://127.0.0.1:5000/login.html`. Khách demo: `demo@nova.app` / `NovaDemo2026!`; nhân viên: `staff@cleanova.vn` / `Staff@Cleanova2026!`. Đặt lịch ở tài khoản khách, đăng nhập nhân viên, mở **Đơn chờ nhận → Nhận ca → Bản đồ / Chỉ đường**. Mỗi ví khách/tín dụng khởi tạo 1.000.000đ giả lập, ví thu nhập bắt đầu 0đ. Giao diện có nhãn DEMO; không chuyển khoản hoặc thanh toán tiền thật.
 
-`node server.js` và `npm start` mặc định bật demo khi `NODE_ENV` chưa đặt hoặc là `development`, và `DEMO_MODE` chưa đặt. Có sẵn tài khoản, đơn mẫu, ví giả lập; không kết nối MySQL và không chạy migration. Server mặc định nghe `0.0.0.0:5000` để truy cập qua LAN; đặt `HOST=127.0.0.1` nếu chỉ dùng trên máy này. Dữ liệu chỉ tồn tại trong RAM, mất khi dừng/khởi động lại; nếu đang có server cổng 5000, dừng server cũ trước.
+Demo chỉ bật khi chạy `npm run demo` hoặc khi đặt `DEMO_MODE=true` trong development/test. Demo mặc định nghe `0.0.0.0:5000`; đặt `HOST=127.0.0.1` để chỉ truy cập từ máy này. Dữ liệu demo mất khi dừng hoặc khởi động lại.
 
-Đặt `DEMO_MODE=false` để dùng luồng MySQL hiện có. Khi triển khai thật, bắt buộc cấu hình `NODE_ENV=production`, `DEMO_MODE=false` cùng secret và MySQL phù hợp; production luôn từ chối `DEMO_MODE=true`. Các môi trường khác không tự bật demo. Lệnh `npm run demo` vẫn có thể bật demo rõ ràng trong development, mặc định chỉ nghe localhost. Không dùng demo để xác nhận tính đúng đắn giao dịch MySQL hoặc triển khai thật.
+Để chạy với MySQL, bỏ `DEMO_MODE` hoặc đặt `DEMO_MODE=false`. Backend kiểm tra kết nối và hoàn tất khởi tạo schema trước khi mở cổng. Nếu khởi tạo MySQL thất bại, backend báo lỗi và thoát. Production yêu cầu `NODE_ENV=production`, secret và cấu hình MySQL; chỉ development/test cho phép bật demo.
+
+Khi khởi động trên schema sổ cái cũ, backend tự đổi tên `balance_after` thành `running_balance` và `note` thành `notes`, giữ các giá trị lịch sử. Các bản ghi mới có thể để trống `balance_before`. Tài khoản MySQL dùng để khởi tạo cần quyền `ALTER` trên các bảng được cập nhật. Số dư trải nghiệm của tài khoản mẫu chỉ được cấp trong development/test.
 
 Demo hỗ trợ nhận ca bằng ví giả lập, đọc ví/lịch sử, thanh toán/hoàn ví khách, quyết toán giả lập, chuyển thu nhập sang tín dụng và hủy theo quyền/trạng thái hiện có. Nhận lại đơn không trừ tiền lần hai; chỉ một nhân viên có thể nhận cùng một đơn. Nhận qua chuyển khoản ngân hàng và rút tiền thật bị chặn. Nạp trực tiếp ví tín dụng vẫn bị vô hiệu hóa theo chính sách hiện có; khởi động lại demo cấp lại tiền giả và xóa toàn bộ dữ liệu RAM. Bản đồ vẫn cần Internet và GPS cần quyền vị trí/HTTPS hoặc localhost.
 
@@ -28,9 +30,22 @@ node backend/test-server-demo-default.js
 
 Xem [báo cáo demo và giới hạn](docs/DEMO_MODE.md). Không thêm dependency hoặc thay schema.
 
+### Nâng cấp demo cho khách hàng, nhân viên và quản trị
+
+Để dùng `cd backend` rồi `node server.js`, đặt `NODE_ENV=development`, `DEMO_MODE=true` và `HOST=127.0.0.1` trong `backend/.env`. Mở trực tiếp `http://127.0.0.1:5000/demo-features.html` sau khi đăng nhập.
+
+1. **Khách hàng** đặt đơn chọn chuyển khoản QR, mở đơn trên trang demo rồi xác nhận thanh toán giả lập. Đơn hoàn thành và đã thanh toán được tính 1 điểm trên mỗi 10.000 VND thực thu của từng đơn. Mốc hạng demo là 50 điểm cho Vàng và 200 điểm cho Bạch Kim. Có thể chọn nhân viên từng hoàn thành đơn và gửi tin nhắn cho nhân viên phụ trách khi đơn đang hoạt động.
+2. **Quản trị** mở phân ca cho đơn đang chờ. Trong 5 phút đầu, lịch tuần hoặc tháng ưu tiên nhân viên quen nếu có. Các trường hợp còn lại ưu tiên nhóm trong 3 km nếu có. Khoảng cách được tính từ vị trí nhân viên giả lập. Sau thời gian ưu tiên, ứng viên còn lại có thể nhận ca.
+3. **Nhân viên** nhận ca trong danh sách được mời, chia sẻ GPS hoặc gửi vị trí mẫu và cho khách ký nghiệm thu trên thiết bị. Chat và vị trí cập nhật khoảng 3 giây một lần. ETA là ước tính demo theo đường chim bay. Vị trí biến mất sau 30 giây nếu ngừng cập nhật.
+4. **Quản trị** xác minh hồ sơ đối tác hư cấu, xử lý khiếu nại và hoàn một phần hoặc toàn phần giao dịch thanh toán giả lập. Khiếu nại đang mở tạm giữ khoản quyết toán chưa chi. Trang báo cáo hỗ trợ tải Excel XML hoặc lưu PDF qua hộp thoại in.
+
+Các tính năng trên dùng dữ liệu RAM. Chỉ sử dụng hồ sơ và chữ ký giả lập khi trình diễn. Quyền ưu tiên và hạng thành viên demo không thay đổi công thức giá.
+
+Kiểm thử từ thư mục gốc bằng `node backend/test-demo-features.js`.
+
 ### Thanh toán đặt lịch bằng VietQR BIDV
 
-Chọn **Chuyển khoản QR → Xác nhận đặt lịch** ở trang đặt lịch vệ sinh hoặc chăm sóc. Khi backend tạo đơn thành công, hộp VietQR hiển thị ngân hàng **BIDV**, tài khoản **8888444265**, số tiền nguyên VND lấy từ `total_price` của đơn đã lưu và nội dung `DABCLEAN <mã đơn không dấu gạch ngang>`. Client không quyết định số tiền hoặc tài khoản nhận qua request đặt lịch.
+Chọn **Chuyển khoản QR → Xác nhận đặt lịch** ở trang đặt lịch vệ sinh hoặc chăm sóc. Hộp xác nhận hiển thị trực tiếp mẫu VietQR `print.svg` cho ngân hàng **BIDV**, tài khoản **8888444265**, số tiền nguyên VND lấy từ `total_price` của đơn đã lưu và nội dung `DABCLEAN <mã đơn không dấu gạch ngang>`. Backend quyết định số tiền và tài khoản nhận.
 
 API tạo đơn và chi tiết đơn bổ sung trường `data.payment_qr`; phương thức khác, đơn đã thanh toán/hoàn tiền/hủy, đơn chờ khảo sát hoặc số tiền không hợp lệ trả `null`. Không đổi schema, dependency hay cấu hình `.env`. Chi tiết người đặt không được gửi tới dịch vụ ảnh QR; Quick Link chỉ chứa tài khoản nhận, số tiền và mã tham chiếu. Ảnh cần Internet; khi tải lỗi vẫn có thông tin chuyển khoản và nút tải lại.
 
@@ -79,7 +94,7 @@ Cấu hình gateway theo `ai-module/.env.example`; bản tích hợp đọc `bac
 Dự án tuân thủ nghiêm ngặt yêu cầu công nghệ giảng dạy và phát triển:
 - **Frontend:** 100% mã nguồn thuần (Pure HTML5, CSS3 hiện đại, Vanilla JavaScript ES6+), hoàn toàn không phụ thuộc vào thư viện bên ngoài (không React/Vue, không Tailwind/Bootstrap, không jQuery).
 - **Backend:** Node.js & Express.js RESTful API, xác thực bảo mật JWT (JSON Web Token), mã hóa mật khẩu bằng bcryptjs, hỗ trợ phân quyền người dùng (RBAC).
-- **Database:** MySQL quan hệ chuẩn hóa + **Cơ chế In-Memory DB tự động** (cho phép chạy và chấm demo ngay lập tức mà không bắt buộc phải cài đặt MySQL trước).
+- **Database:** MySQL quan hệ chuẩn hóa + **chế độ demo in-memory** bật tường minh.
 
 ---
 
@@ -109,7 +124,7 @@ dabclean/
 │
 ├── backend/                    # Mã nguồn máy chủ & RESTful API (Node.js/Express)
 │   ├── src/
-│   │   ├── config/             # Cấu hình kết nối MySQL & Bộ nhớ đệm tự động
+│   │   ├── config/             # Cấu hình kết nối MySQL & chế độ demo
 │   │   │   └── db.js
 │   │   ├── controllers/        # Bộ điều khiển xử lý logic nghiệp vụ
 │   │   │   ├── authController.js
@@ -166,9 +181,9 @@ Hệ thống đã chuẩn bị sẵn tài khoản kiểm thử cho cả 3 vai tr
 
 ### Cách 1: Chạy Full-Stack Đầy Đủ (Khuyến Nghị)
 
-Hệ thống có cơ chế **Fallback thông minh**: nếu MySQL chưa bật, server sẽ tự động chuyển sang cơ sở dữ liệu tạm thời trong bộ nhớ (**In-Memory DB**), đảm bảo mọi API đăng nhập, đăng ký, đặt đơn, quản trị hoạt động trơn tru 100%.
+Luồng full-stack yêu cầu MySQL. Dùng `npm run demo` trong `backend/` khi cần chạy với dữ liệu giả lập.
 
-#### Bước 1: (Nếu có MySQL) Khởi tạo Cơ sở dữ liệu
+#### Bước 1: Khởi tạo Cơ sở dữ liệu
 1. Mở **phpMyAdmin** (XAMPP) hoặc **MySQL Workbench**.
 2. Chạy nội dung trong file [`database/schema.sql`](file:///c:/Users/tiend/Downloads/dabclean/database/schema.sql) để tạo cơ sở dữ liệu `cleanova_db` và các bảng.
 3. Chạy nội dung trong file [`database/seed.sql`](file:///c:/Users/tiend/Downloads/dabclean/database/seed.sql) để nạp dữ liệu mẫu ban đầu.
@@ -185,8 +200,9 @@ cd ../ai-module
 npm install
 cd ../backend
 
-# 3. Khởi chạy máy chủ Backend
-node server.js
+# 3. Khởi chạy máy chủ Backend với MySQL
+$env:DEMO_MODE = "false"
+npm start
 ```
 
 Sau khi chạy thành công, console sẽ thông báo:
@@ -340,13 +356,13 @@ Hai test backend bổ sung sử dụng dữ liệu in-memory riêng trong proces
 - **MySQL:** Khi khởi động, ứng dụng mở rộng enum trạng thái đơn và bổ sung các cột lý do hủy, thời điểm đến/thu tiền, tiền tip và đánh giá nhân viên cho schema hiện có.
 - **Giới hạn xác minh:** GPS và thời điểm chụp lấy từ trình duyệt/thiết bị, không phải bằng chứng chống giả mạo tuyệt đối. Trong môi trường triển khai thực tế cần HTTPS, quyền riêng tư phù hợp và dịch vụ lưu trữ ảnh có kiểm soát truy cập/sao lưu.
 - **CORS & HTTP Headers:** Cấu hình bảo mật chia sẻ tài nguyên nguồn gốc chéo giúp frontend kết nối an toàn.
-- **Cơ chế dự phòng sự cố:** Nếu MySQL ngắt kết nối đột ngột, server không bị crash mà tự động chuyển tiếp dữ liệu an toàn.
+- **Kết nối MySQL:** Lỗi truy vấn được trả về qua trình xử lý lỗi của backend. Dữ liệu tiếp tục dùng MySQL khi kết nối phục hồi.
 
 ---
 
 ## 👨‍💻 8. Hướng Dẫn Dành Cho Thầy/Cô & Người Đánh Giá
 
-1. Để chấm bài nhanh nhất, chỉ cần mở terminal tại thư mục `backend` và gõ `node server.js`.
+1. Để chạy thử bằng dữ liệu demo, mở terminal tại thư mục `backend` và chạy `npm run demo`.
 2. Mở trình duyệt tại **`http://localhost:5000`**.
 3. Đăng nhập bằng tài khoản `admin@cleanova.vn` / `Admin@Cleanova2026!` để kiểm tra toàn bộ quyền Admin Dashboard & Quản trị Hệ thống Hai Ví Nhân Viên DabClean.
 4. Mở thêm cửa sổ ẩn danh và đăng nhập bằng tài khoản `staff@cleanova.vn` / `Staff@Cleanova2026!` để trải nghiệm Cổng Nhân Viên: Quản lý Hai Ví (Ví Tín Dụng & Ví Thu Nhập), nạp ví tín dụng, chuyển tiền giữa 2 ví, kiểm tra điều kiện nhận đơn (`creditBalance >= 100.000 VNĐ`).

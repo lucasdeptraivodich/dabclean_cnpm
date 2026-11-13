@@ -122,7 +122,7 @@ const translations = {
     btn_detail: 'Xem chi tiết',
     btn_book_service: 'Đặt dịch vụ',
 
-    /* --- Why CleanNova Section --- */
+    /* --- Why DabClean Section --- */
     why_badge: '✨ Vì sao chọn chúng tôi',
     why_title: 'Vì sao chọn DabClean?',
     why_subtitle: 'Cam kết đem lại trải nghiệm dịch vụ tiện lợi, minh bạch và an tâm cho từng tổ ấm gia đình.',
@@ -539,7 +539,7 @@ const translations = {
     btn_detail: 'View Details',
     btn_book_service: 'Book Service',
 
-    /* --- Why CleanNova Section --- */
+    /* --- Why DabClean Section --- */
     why_badge: '✨ Why Choose Us',
     why_title: 'Why Choose DabClean?',
     why_subtitle: 'Real, transparent, and dependable benefits for every home.',
@@ -805,7 +805,7 @@ const translations = {
     footer_link_login: 'Sign In / Register',
     footer_link_steps: '6-Step Cleaning Standard',
     footer_link_ai: 'AI Dirt Scan Technology',
-    footer_link_why: 'Why CleanNova?',
+    footer_link_why: 'Why DabClean?',
     footer_link_faq: 'FAQ',
     footer_newsletter_title: 'Support & Booking',
     footer_link_book_online: '⚡ Book Online',

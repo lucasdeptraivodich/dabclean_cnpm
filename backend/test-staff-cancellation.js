@@ -1,10 +1,9 @@
 const assert = require('node:assert/strict');
 const crypto = require('node:crypto');
-process.env.NODE_ENV = 'test';
-process.env.DB_HOST = '127.0.0.1';
-process.env.DB_PORT = '1';
 process.env.JWT_SECRET = crypto.randomBytes(48).toString('hex');
 const jwt = require('jsonwebtoken');
+process.env.NODE_ENV = 'test';
+process.env.DEMO_MODE = 'true';
 const app = require('./src/app');
 const server = app.listen(0, '127.0.0.1', async () => {
   let count = 0;

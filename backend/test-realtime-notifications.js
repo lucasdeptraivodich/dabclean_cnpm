@@ -5,6 +5,8 @@
 const http = require('http');
 const jwt = require('jsonwebtoken');
 const { io: Client } = require('socket.io-client');
+process.env.NODE_ENV = 'test';
+process.env.DEMO_MODE = 'true';
 const app = require('./src/app');
 const { initSocket, notifyUser, notifyRole, notifyBooking } = require('./src/services/socketService');
 const { getJwtSecret } = require('./src/config/jwt');
@@ -39,7 +41,9 @@ async function runTests() {
   const secret = getJwtSecret();
 
   // Tạo mock JWT token cho 3 đối tượng
-  const customerToken = jwt.sign({ id: 101, email: 'customer@dabclean.vn', role: 'customer' }, secret);
+  const customerId = 2;
+  const bookingId = 4;
+  const customerToken = jwt.sign({ id: customerId, role: 'customer' }, secret);
   const staffToken = jwt.sign({ id: 202, email: 'staff@dabclean.vn', role: 'staff' }, secret);
   const adminToken = jwt.sign({ id: 303, email: 'admin@dabclean.vn', role: 'admin' }, secret);
 
@@ -56,7 +60,7 @@ async function runTests() {
       new Promise((res) => adminSocket.on('connect', res))
     ]);
 
-    assert(customerSocket.connected, 'Khách hàng (Customer #101) kết nối Socket.IO thành công');
+    assert(customerSocket.connected, 'Khách hàng kết nối Socket.IO thành công');
     assert(staffSocket.connected, 'Nhân viên (Staff #202) kết nối Socket.IO thành công');
     assert(adminSocket.connected, 'Quản trị viên (Admin #303) kết nối Socket.IO thành công');
 
@@ -79,13 +83,13 @@ async function runTests() {
     assert(staffReceived.sound === 'new_order', 'Staff nhận được âm thanh chuông new_order');
     assert(staffReceived.data.bookingId === 999, 'Payload bookingId chính xác');
 
-    // Test 2: Bắn thông báo đích danh tới Khách hàng (notifyUser 101)
+    // Test 2: Bắn thông báo đích danh tới Khách hàng
     console.log('\n--- Test 2: Bắn thông báo đích danh tới Khách hàng ---');
     const customerNotifPromise = new Promise((resolve) => {
       customerSocket.once('notification', (payload) => resolve(payload));
     });
 
-    notifyUser(101, {
+    notifyUser(customerId, {
       type: 'staff_accepted',
       title: '👨‍🔧 Thợ đã nhận đơn của bạn',
       message: 'Nguyễn Văn Thợ đang trên đường đến',
@@ -116,22 +120,22 @@ async function runTests() {
 
     // Test 4: Khách hàng theo dõi phòng đơn hàng (join_booking & booking_status_updated)
     console.log('\n--- Test 4: Theo dõi thời gian thực theo phòng đơn hàng ---');
-    customerSocket.emit('join_booking', 999);
+    customerSocket.emit('join_booking', bookingId);
     await new Promise((r) => setTimeout(r, 100)); // Đợi join room hoàn tất
 
     const bookingStatusPromise = new Promise((resolve) => {
       customerSocket.once('booking_status_updated', (data) => resolve(data));
     });
 
-    notifyBooking(999, 'booking_status_updated', {
-      bookingId: 999,
+    notifyBooking(bookingId, 'booking_status_updated', {
+      bookingId,
       status: 'in_progress',
       message: 'Thợ đã check-in và bắt đầu dọn dẹp'
     });
 
     const bookingStatusReceived = await bookingStatusPromise;
     assert(bookingStatusReceived.status === 'in_progress', 'Khách hàng nhận được cập nhật trạng thái đơn: in_progress');
-    assert(bookingStatusReceived.bookingId === 999, 'Đúng mã đơn hàng trong phòng');
+    assert(bookingStatusReceived.bookingId === bookingId, 'Đúng mã đơn hàng trong phòng');
 
   } finally {
     customerSocket.disconnect();

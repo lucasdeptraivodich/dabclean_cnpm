@@ -123,7 +123,7 @@ const partnerController = {
 
       res.status(201).json({
         success: true,
-        message: 'Hồ sơ của bạn đã được gửi. CleanNova sẽ xử lý theo quy trình xét duyệt hiện tại.',
+        message: 'Hồ sơ của bạn đã được gửi. DabClean sẽ xử lý theo quy trình xét duyệt hiện tại.',
         data: {
           id: applicationId,
           name: name.trim(),

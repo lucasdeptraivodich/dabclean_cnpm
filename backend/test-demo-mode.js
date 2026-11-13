@@ -39,11 +39,17 @@ const server = app.listen(0, '127.0.0.1', async () => {
     await call('/staff/tasks/4/navigation', winner === 3 ? 4 : 3, 'GET', null, 403);
     await call('/wallet/staff/summary', winner);
     await call('/wallet/transactions', winner);
+    await call('/bookings/4/cancel', 2, 'PUT', { reason: 'Khách hủy ca đã nhận' });
+    assert.equal(db.demo.getWallet(winner, 'credit').balance, before);
+    assert.equal((await require('./src/models/bookingModel').getById(4)).commission_refund_status, 'refunded');
     const tomorrow = new Date(Date.now() + 86400000).toISOString().slice(0, 10);
     const created = await call('/bookings', 2, 'POST', { service_id: 1, booking_date: tomorrow, booking_time: '08:30', area_size: 'medium', frequency: 'once', address: '25 Duy Tân, Cầu Giấy, Hà Nội', phone: '0987654321', payment_method: 'cash' }, 201);
     await call(`/staff/tasks/${created.data.id}/accept`, 3, 'POST', {});
     await call(`/staff/tasks/${created.data.id}/navigation`, 3);
-    await call(`/staff/tasks/${created.data.id}/status`, 3, 'PATCH', { status: 'cancelled', cancel_reason: 'Khách muốn đổi lịch demo' });
+    const staffBalance = db.demo.getWallet(3, 'credit').balance;
+    const cancelled = await call(`/staff/tasks/${created.data.id}/status`, 3, 'PATCH', { status: 'cancelled', cancel_reason: 'Nhân viên không thể đến ca' });
+    assert.equal(cancelled.data.commission_refund_status, 'rejected');
+    assert.equal(db.demo.getWallet(3, 'credit').balance, staffBalance);
     const walletOrder = await call('/bookings', 2, 'POST', { service_id: 1, booking_date: tomorrow, booking_time: '10:30', area_size: 'medium', frequency: 'once', address: '25 Duy Tân, Hà Nội', phone: '0987654321', payment_method: 'wallet' }, 201);
     const originalCustomer = db.demo.getWallet(2, 'customer').balance;
     await call(`/bookings/${walletOrder.data.id}/cancel`, 2, 'PUT', { reason: 'Khách hủy lịch demo' });
@@ -57,7 +63,16 @@ const server = app.listen(0, '127.0.0.1', async () => {
     const prod = spawnSync(process.execPath, ['-e', "require('./src/config/db')"], { cwd: __dirname, env: { ...process.env, NODE_ENV: 'production' }, encoding: 'utf8' });
     assert.notEqual(prod.status, 0);
     assert.match(prod.stderr, /DEMO_MODE/);
-    const disabled = spawnSync(process.execPath, ['-e', "const d=require('./src/config/db');if(d.demo)process.exit(9)"], { cwd: __dirname, env: { ...process.env, DEMO_MODE: 'false', DB_PORT: '1' }, encoding: 'utf8', timeout: 10000 });
+    const disabled = spawnSync(process.execPath, ['-e', `
+      const assert = require('node:assert/strict');
+      const db = require('./src/config/db');
+      assert.equal(db.demo, null);
+      assert.equal(db.getPool(), null);
+      assert.rejects(db.query('SELECT * FROM users'), { statusCode: 503 }).catch(err => {
+        console.error(err);
+        process.exitCode = 1;
+      });
+    `], { cwd: __dirname, env: { ...process.env, DEMO_MODE: 'false' }, encoding: 'utf8', timeout: 10000 });
     assert.equal(disabled.status, 0);
     console.log(`PASS ${count} demo HTTP cases + competing staff, idempotent acceptance, cash booking/navigation/cancel, production prohibition and opt-in`);
   } catch (err) { console.error(err); process.exitCode = 1; }
