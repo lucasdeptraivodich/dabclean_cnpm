@@ -751,6 +751,12 @@
         <button class="admin-tab-btn" data-tab="tab-commission" role="tab">
           <span>🏦</span> Đối Soát Chiết Khấu (<span id="tab-count-commission">0</span>)
         </button>
+        <button class="admin-tab-btn" data-tab="tab-disputes" role="tab">
+          <span>⚖️</span> Khiếu Nại & Bồi Thường (<span id="tab-count-disputes">0</span>)
+        </button>
+        <button class="admin-tab-btn" data-tab="tab-inventory" role="tab">
+          <span>📦</span> Quản Lý Kho & Cấp Phát Vật Tư (<span id="tab-count-inventory">0</span>)
+        </button>
       </nav>
 
       <!-- TAB 1: QUẢN LÝ ĐƠN ĐẶT LỊCH & PHÂN CÔNG NHÂN VIÊN -->
@@ -3846,6 +3852,104 @@
     </div>
   </div>
 
+<script>
+    // Logic Quản lý Khiếu nại và Kho vật tư
+    window.loadDisputes = async function() {
+      try {
+        const res = await api.disputes.getAllForAdmin();
+        const tbody = document.getElementById('disputes-table-body');
+        const badgeCount = document.getElementById('tab-count-disputes');
+        if (badgeCount) badgeCount.textContent = res.count || 0;
+        if (!res.data || res.data.length === 0) {
+          tbody.innerHTML = '<tr><td colspan="10" style="text-align:center; padding:20px;">Không có khiếu nại nào.</td></tr>';
+          return;
+        }
+        tbody.innerHTML = res.data.map(d => `
+          <tr>
+            <td>#${d.id}</td>
+            <td><strong>#${d.booking_code || d.booking_id}</strong></td>
+            <td>${d.customer_name}<br><small style="color:#666">${d.customer_phone}</small></td>
+            <td>${d.staff_name}<br><small style="color:#666">Uy tín: ${d.reputation_score}đ (${d.reputation_tier})</small></td>
+            <td><span class="status-badge status-warning">${d.dispute_type}</span><br><small>${d.title}</small></td>
+            <td style="color:#e11d48; font-weight:700;">${Number(d.claimed_amount || 0).toLocaleString('vi-VN')} đ</td>
+            <td style="color:#059669; font-weight:700;">${Number(d.approved_amount || 0).toLocaleString('vi-VN')} đ</td>
+            <td><span class="status-badge">${d.compensation_source}</span></td>
+            <td><span class="status-badge ${d.status === 'resolved' ? 'status-confirmed' : 'status-pending'}">${d.status}</span></td>
+            <td>
+              ${d.status === 'pending' ? `
+                <button class="btn btn-primary btn-sm" onclick="handleResolveDispute(${d.id}, ${d.claimed_amount})">⚖️ Phán quyết</button>
+              ` : '<span style="color:#059669; font-size:12px;">Đã giải quyết</span>'}
+            </td>
+          </tr>
+        `).join('');
+      } catch (e) {
+        console.error(e);
+      }
+    };
+
+    window.handleResolveDispute = async function(id, claimed) {
+      const amountStr = prompt('Nhập số tiền duyệt bồi thường (VNĐ):', claimed || '200000');
+      if (!amountStr) return;
+      const amount = parseFloat(amountStr);
+      if (isNaN(amount) || amount <= 0) return alert('Số tiền không hợp lệ');
+      const note = prompt('Ghi chú xử lý của Quản trị viên:', 'Đã đối chiếu hồ sơ và thỏa thuận đền bù.');
+      try {
+        await api.disputes.resolve(id, { decision: 'approved', approved_amount: amount, admin_notes: note });
+        alert('Đã ban hành phán quyết và giải ngân bồi thường thành công!');
+        loadDisputes();
+      } catch (err) {
+        alert('Lỗi: ' + err.message);
+      }
+    };
+
+    window.loadInventory = async function() {
+      try {
+        const [invRes, allocRes] = await Promise.all([
+          api.inventory.getAll(),
+          api.inventory.getAllocations()
+        ]);
+        const invTbody = document.getElementById('inventory-table-body');
+        const allocTbody = document.getElementById('allocations-table-body');
+        const badgeCount = document.getElementById('tab-count-inventory');
+        if (badgeCount) badgeCount.textContent = invRes.count || 0;
+
+        invTbody.innerHTML = invRes.data.map(item => `
+          <tr>
+            <td><strong>${item.item_code}</strong></td>
+            <td>${item.item_name}</td>
+            <td><span class="status-badge">${item.category}</span></td>
+            <td>${item.unit}</td>
+            <td>${Number(item.unit_price).toLocaleString('vi-VN')} đ</td>
+            <td style="font-weight:700; color:${item.stock_quantity < 20 ? '#e11d48' : '#059669'};">${item.stock_quantity}</td>
+            <td><span class="status-badge status-confirmed">${item.is_active ? 'Đang cấp phát' : 'Ngừng'}</span></td>
+          </tr>
+        `).join('');
+
+        allocTbody.innerHTML = allocRes.data.map(a => `
+          <tr>
+            <td><strong>${a.staff_name}</strong><br><small style="color:#666">${a.staff_phone}</small></td>
+            <td>${a.item_name}</td>
+            <td>${a.quantity} ${a.unit}</td>
+            <td>${a.allocated_date ? a.allocated_date.slice(0, 10) : ''}</td>
+            <td><span class="status-badge">${a.allocation_type}</span></td>
+            <td><span class="status-badge status-confirmed">${a.status}</span></td>
+            <td><small>${a.notes || '-'}</small></td>
+          </tr>
+        `).join('');
+      } catch (e) {
+        console.error(e);
+      }
+    };
+
+    // Auto-load on tab switch
+    document.addEventListener('click', (e) => {
+      const btn = e.target.closest('.admin-tab-btn');
+      if (!btn) return;
+      const tab = btn.dataset.tab;
+      if (tab === 'tab-disputes') loadDisputes();
+      if (tab === 'tab-inventory') loadInventory();
+    });
+</script>
 </body>
 
 </html>

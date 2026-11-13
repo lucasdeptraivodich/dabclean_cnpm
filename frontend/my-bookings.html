@@ -703,6 +703,9 @@
                     <button class="btn btn-outline btn-sm btn-review-order" data-id="${b.id}" data-code="${b.booking_code}">
                       ⭐ Đánh giá
                     </button>
+                    <button class="btn btn-outline btn-sm btn-dispute-order" style="color:#e11d48; border-color:#fca5a5;" data-id="${b.id}" data-code="${b.booking_code}">
+                      🚨 Khiếu nại sự cố
+                    </button>
                     ${Number(b.tip_amount || 0) > 0 ? `
                       <button class="btn btn-outline btn-sm" disabled>💝 Đã tip ${Number(b.tip_amount).toLocaleString('vi-VN')} đ</button>
                     ` : `
