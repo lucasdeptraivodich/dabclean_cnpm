@@ -685,6 +685,9 @@
         <button type="button" class="staff-tab-btn" data-tab="tab-profile">
           👤 Hồ Sơ & Bảo Mật
         </button>
+        <button type="button" class="staff-tab-btn" data-tab="tab-equipment">
+          🎒 Đồ Nghề & Cấp Phát
+        </button>
       </div>
 
       <!-- ============================================================
@@ -1059,6 +1062,40 @@
         </div>
       </div>
 
+      <!-- ============================================================
+           TAB 5: ĐỒ NGHỀ & VẬT TƯ CẤP PHÁT (STAFF EQUIPMENT ALLOCATIONS)
+           ============================================================ -->
+      <div class="tab-pane" id="tab-equipment" style="display: none;">
+        <div class="card" style="margin-bottom: 24px;">
+          <div style="display:flex; justify-content:space-between; align-items:center; flex-wrap:wrap; gap:12px; margin-bottom:16px;">
+            <div>
+              <h2 style="font-size:18px; font-weight:800; margin:0 0 4px 0;">🎒 Danh Sách Đồ Nghề & Vật Tư Được Cấp Phát</h2>
+              <p style="font-size:13px; color:#64748B; margin:0;">Các trang thiết bị, hóa chất sinh học và đồng phục được CleanNova cấp phát để phục vụ khách hàng.</p>
+            </div>
+            <button type="button" class="btn btn-outline btn-sm" id="btn-refresh-equipment">🔄 Cập nhật</button>
+          </div>
+          <div class="table-responsive">
+            <table class="table">
+              <thead>
+                <tr>
+                  <th>Vật tư / Dụng cụ</th>
+                  <th>Mã kho</th>
+                  <th>Số lượng</th>
+                  <th>Đơn vị</th>
+                  <th>Loại cấp</th>
+                  <th>Ngày cấp</th>
+                  <th>Tình trạng</th>
+                  <th>Ghi chú</th>
+                </tr>
+              </thead>
+              <tbody id="equipment-list-tbody">
+                <tr><td colspan="8" style="text-align:center; padding:24px; color:#64748B;">Đang tải danh sách vật tư...</td></tr>
+              </tbody>
+            </table>
+          </div>
+        </div>
+      </div>
+
     </div>
   </main>
 
@@ -1399,6 +1436,8 @@
           if (target) target.style.display = 'block';
           if (this.dataset.tab === 'tab-wallet') {
             loadStaffWallet();
+          } else if (this.dataset.tab === 'tab-equipment') {
+            loadStaffEquipment();
           }
         });
       });
@@ -3000,6 +3039,7 @@
         btnRefreshWallet.addEventListener('click', async () => {
           btnRefreshWallet.textContent = '🔄 Đang cập nhật...';
           await loadStaffWallet();
+      await loadStaffReputation();
           await refreshStaffEligibility();
           btnRefreshWallet.textContent = '🔄 Cập nhật số dư';
           showAlert('success', 'Đã cập nhật số liệu hai ví mới nhất!');
@@ -3109,6 +3149,111 @@
             submitBtn.textContent = '🚀 Xác Nhận Rút Tiền';
           }
         });
+      }
+
+      
+      // ------------------------------------------------------------
+      // 6. TẢI ĐIỂM TÍN NHIỆM & CẤP BẬC UY TÍN
+      // ------------------------------------------------------------
+      async function loadStaffReputation() {
+        try {
+          const res = await DabCleanAPI.reputation.getMyReputation();
+          if (res && res.data) {
+            const d = res.data;
+            const score = d.reputation_score !== undefined ? d.reputation_score : 100;
+            const tier = d.reputation_tier || 'silver';
+            const tierNames = {
+              gold: 'HẠNG VÀNG (GOLD PARTNER)',
+              silver: 'HẠNG BẠC (STANDARD PARTNER)',
+              bronze: 'HẠNG CAM (WARNING TIER)',
+              suspended: 'HẠNG ĐỎ (SUSPENDED TIER)'
+            };
+            const tierBadges = {
+              gold: { icon: '🥇', pill: 'Ưu đãi 18%', color: '#FEF3C7', textColor: '#92400E', desc: 'Thợ xuất sắc, ưu tiên nhận việc trước 30s, hoa hồng ưu đãi 18%.' },
+              silver: { icon: '🥈', pill: 'Tiêu chuẩn', color: '#E0E7FF', textColor: '#3730A3', desc: 'Nhận việc bình thường, không trễ giờ, tỷ lệ hoa hồng chuẩn 20%.' },
+              bronze: { icon: '🥉', pill: 'Cảnh cáo', color: '#FFEDD5', textColor: '#9A3412', desc: 'Nhận việc trễ 60s so với hạng khác, không được nhận đơn hẹn giờ.' },
+              suspended: { icon: '⛔', pill: 'Đang khóa ca', color: '#FEE2E2', textColor: '#991B1B', desc: 'Điểm dưới 60: Tạm khóa quyền nhận việc 24-48h.' }
+            };
+
+            const info = tierBadges[tier] || tierBadges.silver;
+            const badgeIcon = document.getElementById('rep-badge-icon');
+            if (badgeIcon) badgeIcon.textContent = info.icon;
+            const tierNameEl = document.getElementById('rep-tier-name');
+            if (tierNameEl) tierNameEl.textContent = tierNames[tier] || tier.toUpperCase();
+            const badgePill = document.getElementById('rep-badge-pill');
+            if (badgePill) {
+              badgePill.textContent = info.pill;
+              badgePill.style.background = info.color;
+              badgePill.style.color = info.textColor;
+            }
+            const tierDesc = document.getElementById('rep-tier-desc');
+            if (tierDesc) tierDesc.textContent = info.desc;
+
+            const scoreText = document.getElementById('rep-score-text');
+            if (scoreText) scoreText.textContent = '⭐ ' + score + ' / 120';
+            const progressBar = document.getElementById('rep-progress-bar');
+            if (progressBar) {
+              const pct = Math.min(Math.max((score / 120) * 100, 5), 100);
+              progressBar.style.width = pct + '%';
+              if (tier === 'gold') progressBar.style.background = '#FBBF24';
+              else if (tier === 'silver') progressBar.style.background = '#60A5FA';
+              else if (tier === 'bronze') progressBar.style.background = '#FB923C';
+              else progressBar.style.background = '#EF4444';
+            }
+            const progressHint = document.getElementById('rep-progress-hint');
+            if (progressHint) {
+              if (score >= 120) {
+                progressHint.textContent = 'Đạt hạng Vàng tối đa! Duy trì chuỗi hoàn thành để giữ vững phong độ.';
+              } else {
+                progressHint.textContent = 'Còn ' + (120 - score) + ' điểm nữa để lên Hạng Vàng 🥇';
+              }
+            }
+          }
+        } catch (err) {
+          console.warn('Lỗi tải điểm tín nhiệm:', err);
+        }
+      }
+
+      // ------------------------------------------------------------
+      // 7. TẢI DANH SÁCH ĐỒ NGHỀ & VẬT TƯ CẤP PHÁT
+      // ------------------------------------------------------------
+      async function loadStaffEquipment() {
+        const tbody = document.getElementById('equipment-list-tbody');
+        if (!tbody) return;
+        try {
+          const res = await DabCleanAPI.inventory.getStaffAllocations();
+          const list = (res && res.data) ? res.data : [];
+          if (!list || list.length === 0) {
+            tbody.innerHTML = '<tr><td colspan="8" style="text-align:center; padding:24px; color:#64748B;">Bạn chưa được cấp phát đồ nghề nào. Liên hệ Quản trị viên nếu cần cấp bổ sung.</td></tr>';
+            return;
+          }
+          tbody.innerHTML = list.map(item => {
+            const dateStr = item.allocated_at ? new Date(item.allocated_at).toLocaleDateString('vi-VN') : '---';
+            const typeLabel = item.allocation_type === 'initial_free' ? '<span style="color:#059669; font-weight:700;">Miễn phí ban đầu</span>' :
+              (item.allocation_type === 'monthly_refill' ? '<span style="color:#2563EB; font-weight:700;">Cấp bổ sung định kỳ</span>' : '<span style="color:#D97706; font-weight:700;">Khấu trừ lương</span>');
+            const statusLabel = item.status === 'allocated' ? '<span style="color:#059669; font-weight:700;">Đang sử dụng</span>' :
+              (item.status === 'returned' ? '<span style="color:#64748B;">Đã hoàn trả</span>' : '<span style="color:#DC2626;">Hỏng / Mất</span>');
+            return `
+              <tr>
+                <td><strong>${item.equipment_name || 'Vật tư'}</strong></td>
+                <td><code style="background:#F1F5F9; padding:2px 6px; border-radius:4px;">${item.equipment_code || '---'}</code></td>
+                <td><strong style="color:#1E40AF;">${item.quantity || 1}</strong></td>
+                <td>${item.unit || 'bộ'}</td>
+                <td>${typeLabel}</td>
+                <td>${dateStr}</td>
+                <td>${statusLabel}</td>
+                <td style="color:#64748B; font-size:12px;">${item.notes || '---'}</td>
+              </tr>
+            `;
+          }).join('');
+        } catch (err) {
+          tbody.innerHTML = '<tr><td colspan="8" style="text-align:center; padding:24px; color:#DC2626;">Lỗi khi tải danh sách vật tư. Vui lòng thử lại.</td></tr>';
+        }
+      }
+
+      const btnRefreshEquip = document.getElementById('btn-refresh-equipment');
+      if (btnRefreshEquip) {
+        btnRefreshEquip.addEventListener('click', loadStaffEquipment);
       }
 
       // Khởi chạy nạp dữ liệu ban đầu

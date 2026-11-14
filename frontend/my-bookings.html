@@ -434,6 +434,58 @@
     </div>
   </div>
 
+
+  <!-- ============================================================
+       MODAL 6: KHIẾU NẠI & ĐỀN BÙ SỰ CỐ (DISPUTE & DAMAGE COMPENSATION)
+       ============================================================ -->
+  <div class="modal-overlay" id="dispute-modal" role="dialog" aria-modal="true">
+    <div class="modal" style="max-width: 540px;">
+      <div class="modal-header">
+        <h3 class="modal-title" style="color: #E11D48;">🚨 Khiếu nại sự cố & Yêu cầu đền bù</h3>
+        <button class="modal-close" id="dispute-close-btn" type="button">&times;</button>
+      </div>
+
+      <form id="dispute-form">
+        <input type="hidden" id="dispute-booking-id" />
+        <div style="background: #FFF1F2; border: 1px solid #FECDD3; border-radius: 8px; padding: 12px; margin-bottom: 14px; font-size: 13px; color: #9F1239;">
+          Mã đơn: <strong id="dispute-booking-code"></strong><br />
+          Chính sách DabClean bảo vệ quyền lợi tài sản khách hàng tới 50.000.000 VNĐ. Sự cố nhẹ (<200k) được bồi hoàn trong vòng 2 giờ làm việc.
+        </div>
+
+        <div class="form-group" style="margin-bottom: 14px;">
+          <label style="font-weight: 700; font-size: 13px; display: block; margin-bottom: 6px;">Loại sự cố / khiếu nại: *</label>
+          <select id="dispute-type" class="form-control" style="width: 100%; padding: 8px 12px; border-radius: 6px; border: 1px solid #CBD5E1;" required>
+            <option value="damage_property">Vỡ / Hư hỏng tài sản (Cốc chén, rèm, gương, đồ gia dụng)</option>
+            <option value="loss_property">Mất mát tài sản / Nghi ngờ thất lạc</option>
+            <option value="poor_cleaning">Chất lượng dọn dẹp quá kém / Chưa đạt cam kết</option>
+            <option value="attitude">Thái độ phục vụ của nhân viên không tốt</option>
+            <option value="other">Vấn đề khác</option>
+          </select>
+        </div>
+
+        <div class="form-group" style="margin-bottom: 14px;">
+          <label style="font-weight: 700; font-size: 13px; display: block; margin-bottom: 6px;">Tiêu đề ngắn gọn: *</label>
+          <input type="text" id="dispute-title" class="form-control" placeholder="Ví dụ: Làm nứt vỡ bình hoa sứ phòng khách" style="width: 100%; padding: 8px 12px; border-radius: 6px; border: 1px solid #CBD5E1;" required />
+        </div>
+
+        <div class="form-group" style="margin-bottom: 14px;">
+          <label style="font-weight: 700; font-size: 13px; display: block; margin-bottom: 6px;">Ước tính giá trị thiệt hại yêu cầu bồi thường (VNĐ): *</label>
+          <input type="number" id="dispute-amount" class="form-control" placeholder="Ví dụ: 150000" min="0" max="50000000" step="1000" style="width: 100%; padding: 8px 12px; border-radius: 6px; border: 1px solid #CBD5E1;" required />
+        </div>
+
+        <div class="form-group" style="margin-bottom: 14px;">
+          <label style="font-weight: 700; font-size: 13px; display: block; margin-bottom: 6px;">Mô tả chi tiết sự việc: *</label>
+          <textarea id="dispute-desc" class="form-control" rows="3" placeholder="Vui lòng cung cấp chi tiết vị trí, hiện trạng đồ đạc và thời điểm phát hiện sự cố..." style="width: 100%; padding: 8px 12px; border-radius: 6px; border: 1px solid #CBD5E1;" required></textarea>
+        </div>
+
+        <div class="modal-footer" style="display: flex; justify-content: flex-end; gap: 8px; margin-top: 16px;">
+          <button type="button" class="btn btn-secondary" id="dispute-cancel-btn">Hủy bỏ</button>
+          <button type="submit" class="btn btn-danger" id="dispute-submit-btn" style="background: #E11D48; border-color: #E11D48; color: #fff;">Gửi yêu cầu bồi thường</button>
+        </div>
+      </form>
+    </div>
+  </div>
+
   <!-- Toast Notification Container -->
   <div class="toast-container" id="toast-container"></div>
 

@@ -50,4 +50,11 @@ router.get('/my-equipment', async (req, res, next) => {
   } catch (e) { next(e); }
 });
 
+router.get('/equipment', async (req, res, next) => {
+  try {
+    const allocations = await inventoryService.getAllocations({ staffId: req.user.id });
+    res.json({ success: true, count: allocations.length, data: allocations });
+  } catch (e) { next(e); }
+});
+
 module.exports = router;

@@ -383,6 +383,81 @@
       }
     },
 
+    // Module Quản lý khiếu nại sự cố & Đền bù (Disputes & Damage)
+    disputes: {
+      async create(bookingId, disputeData) {
+        return await request(`/bookings/${bookingId}/disputes`, {
+          method: 'POST',
+          body: JSON.stringify(disputeData)
+        });
+      },
+
+      async getByBooking(bookingId) {
+        return await request(`/bookings/${bookingId}/disputes`);
+      },
+
+      async getAllForAdmin(params = {}) {
+        const qs = new URLSearchParams(params).toString();
+        return await request(`/admin/disputes${qs ? '?' + qs : ''}`);
+      },
+
+      async resolve(disputeId, resolveData) {
+        return await request(`/admin/disputes/${disputeId}/resolve`, {
+          method: 'POST',
+          body: JSON.stringify(resolveData)
+        });
+      }
+    },
+
+    // Module Quản lý Kho vật tư & Cấp phát dụng cụ (Inventory)
+    inventory: {
+      async getAll(params = {}) {
+        const qs = new URLSearchParams(params).toString();
+        return await request(`/admin/inventory${qs ? '?' + qs : ''}`);
+      },
+
+      async create(itemData) {
+        return await request('/admin/inventory', {
+          method: 'POST',
+          body: JSON.stringify(itemData)
+        });
+      },
+
+      async update(id, itemData) {
+        return await request(`/admin/inventory/${id}`, {
+          method: 'PUT',
+          body: JSON.stringify(itemData)
+        });
+      },
+
+      async allocate(allocationData) {
+        return await request('/admin/inventory/allocate', {
+          method: 'POST',
+          body: JSON.stringify(allocationData)
+        });
+      },
+
+      async getAllocations(params = {}) {
+        const qs = new URLSearchParams(params).toString();
+        return await request(`/admin/inventory/allocations${qs ? '?' + qs : ''}`);
+      },
+
+      async getStaffAllocations() {
+        return await request('/staff/equipment');
+      }
+    },
+
+    // Module Điểm tín nhiệm & Cấp bậc thợ (Reputation & Tiers)
+    reputation: {
+      async getMyReputation() {
+        return await request('/staff/reputation');
+      },
+
+      async getStaffReputation(staffId) {
+        return await request(`/admin/staff/${staffId}/reputation`);
+      }
+    },
+
     // Module Mã giảm giá Voucher & Khuyến mãi động
     vouchers: {
       async getActive() {
