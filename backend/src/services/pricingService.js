@@ -74,6 +74,75 @@ const pricingService = {
    * platform_commission = employee_gross_earnings * commission_rate
    * employee_net_earnings = employee_gross_earnings - platform_commission
    */
+  
+  /**
+   * Xác định hệ số phụ thu Surge và tỷ lệ chia sẻ thù lao cho Thợ theo quy chuẩn mới:
+   * - Ngày thường: Phụ thu 0%, Thợ nhận 80%, Sàn 20%
+   * - Cuối tuần (T7, CN): Phụ thu +5%, Thợ nhận 85%, Sàn 15%
+   * - Giờ cao điểm (17h - 19h): Phụ thu +7%, Thợ nhận 87%, Sàn 13%
+   * - Ngày Lễ, Tết: Phụ thu +10%, Thợ nhận 88%, Sàn 12%
+   * - Thời tiết xấu / Mưa bão: Phụ thu +10%, Thợ nhận 90%, Sàn 10%
+   */
+  getSurgePricingConfig(bookingDate, bookingTime, isBadWeather = false) {
+    let isWeekend = false;
+    let isHoliday = false;
+    let isPeakHour = false;
+
+    if (bookingDate) {
+      const d = new Date(bookingDate);
+      if (!isNaN(d.getTime())) {
+        const day = d.getDay(); // 0: CN, 6: T7
+        isWeekend = (day === 0 || day === 6);
+
+        // Danh sách ngày lễ dương lịch phổ biến tại VN (MM-DD)
+        const monthDay = ('0' + (d.getMonth() + 1)).slice(-2) + '-' + ('0' + d.getDate()).slice(-2);
+        const holidays = ['01-01', '04-30', '05-01', '09-02'];
+        if (holidays.includes(monthDay)) {
+          isHoliday = true;
+        }
+      }
+    }
+
+    if (bookingTime) {
+      const hour = parseInt(String(bookingTime).slice(0, 2), 10);
+      if (!isNaN(hour) && hour >= 17 && hour <= 19) {
+        isPeakHour = true;
+      }
+    }
+
+    let surgeRate = 0.00;
+    let staffShareRate = 0.80; // Mặc định ngày thường 80%
+    let surgeReason = 'standard';
+
+    if (isBadWeather) {
+      surgeRate = 0.10;
+      staffShareRate = 0.90;
+      surgeReason = 'bad_weather';
+    } else if (isHoliday) {
+      surgeRate = 0.10;
+      staffShareRate = 0.88;
+      surgeReason = 'holiday';
+    } else if (isPeakHour) {
+      surgeRate = 0.07;
+      staffShareRate = 0.87;
+      surgeReason = 'peak_hour';
+    } else if (isWeekend) {
+      surgeRate = 0.05;
+      staffShareRate = 0.85;
+      surgeReason = 'weekend';
+    }
+
+    return {
+      isWeekend,
+      isHoliday,
+      isPeakHour,
+      isBadWeather,
+      surgeRate,
+      staffShareRate,
+      surgeReason
+    };
+  },
+
   calculateCommission(grossWage, commissionRate = 0.20) {
     const gross = Math.max(0, Math.round(Number(grossWage) || 0));
     const rate = Number(commissionRate);
@@ -498,19 +567,32 @@ const pricingService = {
 
     if (!normalizedPromo) discountAmount = Math.max(discountAmount, subtotal * (options.membership_rate || 0));
     const minFloor = isCareService ? (subtotal * 0.5) : 50000;
-    const totalPrice = Math.max(subtotal - discountAmount, minFloor);
-    const commission = this.calculateCommission(staffWage, options.commission_rate);
+    let baseCalculatedPrice = Math.max(subtotal - discountAmount, minFloor);
+
+    // BẬT CƠ CHẾ PHỤ THU SURGE NHẸ (5% - 10%) & NÂNG THÙ LAO THỢ (85% - 90%)
+    const surgeConfig = this.getSurgePricingConfig(options.booking_date, options.booking_time, options.is_bad_weather);
+    const surgeAmount = Math.round(baseCalculatedPrice * surgeConfig.surgeRate);
+    const finalTotalPrice = baseCalculatedPrice + surgeAmount;
+
+    // Tính thù lao thợ nhận & hoa hồng sàn
+    const staffNetWage = Math.round(finalTotalPrice * surgeConfig.staffShareRate);
+    const platformCommission = finalTotalPrice - staffNetWage;
+    const effectiveCommissionRate = +(1 - surgeConfig.staffShareRate).toFixed(2);
 
     return {
       subtotal: Math.round(subtotal),
       addonAmount: Math.round(addonAmount),
       addons: appliedAddons,
       discountAmount: Math.round(discountAmount),
-      totalPrice: Math.round(totalPrice),
-      staffWage: commission.grossWage,
-      commissionRate: commission.commissionRate,
-      platformCommission: commission.platformCommission,
-      staffNetWage: commission.netWage,
+      surgeRate: surgeConfig.surgeRate,
+      surgeAmount: surgeAmount,
+      surgeReason: surgeConfig.surgeReason,
+      staffShareRate: surgeConfig.staffShareRate,
+      totalPrice: Math.round(finalTotalPrice),
+      staffWage: Math.round(finalTotalPrice), // Tổng giá trị ca làm việc
+      commissionRate: effectiveCommissionRate,
+      platformCommission: platformCommission,
+      staffNetWage: staffNetWage,
       durationHours: actualDurationHours,
       packageType: isCareService ? (package_type || 'hourly') : 'standard',
       promoCode: normalizedPromo

@@ -579,6 +579,12 @@
                 <span id="summary-subtotal">300.000 đ</span>
               </div>
 
+              <!-- Phụ thu cao điểm / Cuối tuần / Thời tiết -->
+              <div class="summary-row" id="summary-surge-row" style="display: none; color: #b45309;">
+                <span id="summary-surge-label">Phụ thu cao điểm:</span>
+                <strong id="summary-surge-val">+0 đ</strong>
+              </div>
+
               <!-- Chiết khấu tần suất -->
               <div class="summary-row discount" id="summary-freq-discount-row" style="display: none;">
                 <span>Giảm giá tần suất:</span>
@@ -1494,7 +1500,52 @@
           if (voucherRow) voucherRow.style.display = 'none';
         }
 
-        const finalTotal = Math.max(subtotal - Math.max(freqDiscountVal, voucherDiscountVal, memberDiscountVal), 50000);
+        let baseDiscounted = Math.max(subtotal - Math.max(freqDiscountVal, voucherDiscountVal, memberDiscountVal), 50000);
+
+        // Tính phụ thu Surge 5% - 10% theo quy chuẩn
+        let surgeRate = 0.00;
+        let surgeLabel = '';
+        const dVal = document.getElementById('booking-date').value;
+        const tVal = document.getElementById('booking-time').value;
+
+        if (dVal) {
+          const dObj = new Date(dVal);
+          if (!isNaN(dObj.getTime())) {
+            const dayOfWeek = dObj.getDay();
+            const md = ('0' + (dObj.getMonth() + 1)).slice(-2) + '-' + ('0' + dObj.getDate()).slice(-2);
+            if (['01-01', '04-30', '05-01', '09-02'].includes(md)) {
+              surgeRate = 0.10;
+              surgeLabel = 'Phụ thu ngày Lễ (+10%):';
+            } else if (dayOfWeek === 0 || dayOfWeek === 6) {
+              surgeRate = 0.05;
+              surgeLabel = 'Phụ thu cuối tuần (+5%):';
+            }
+          }
+        }
+        if (tVal && !surgeRate) {
+          const hour = parseInt(tVal.slice(0, 2), 10);
+          if (hour >= 17 && hour <= 19) {
+            surgeRate = 0.07;
+            surgeLabel = 'Phụ thu giờ cao điểm (+7%):';
+          }
+        }
+
+        const surgeAmount = Math.round(baseDiscounted * surgeRate);
+        const surgeRow = document.getElementById('summary-surge-row');
+        const surgeValEl = document.getElementById('summary-surge-val');
+        const surgeLabelEl = document.getElementById('summary-surge-label');
+
+        if (surgeRow && surgeValEl && surgeLabelEl) {
+          if (surgeAmount > 0) {
+            surgeRow.style.display = 'flex';
+            surgeLabelEl.textContent = surgeLabel;
+            surgeValEl.textContent = `+${surgeAmount.toLocaleString('vi-VN')} đ`;
+          } else {
+            surgeRow.style.display = 'none';
+          }
+        }
+
+        const finalTotal = baseDiscounted + surgeAmount;
         document.getElementById('summary-total').textContent = `${Math.round(finalTotal).toLocaleString('vi-VN')} đ`;
         if (typeof updateWalletStatusMsg === 'function') {
           updateWalletStatusMsg();
