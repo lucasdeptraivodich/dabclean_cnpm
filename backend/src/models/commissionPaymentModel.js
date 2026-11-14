@@ -141,11 +141,14 @@ const CommissionPaymentModel = {
       const isGoldTier = staffScore >= 120;
 
       const totalPrice = Math.max(0, Math.round(parseFloat(booking.total_price) || 0));
-      const grossWage = Math.max(0, Math.round(parseFloat(booking.staff_wage) || (totalPrice * 0.8) || 0));
-      const commissionRate = isGoldTier ? 0.1800 : (booking.commission_rate ? parseFloat(booking.commission_rate) : 0.2000);
+      const grossWage = Math.max(0, Math.round(parseFloat(booking.staff_wage) || totalPrice || 0));
+
+      // Ưu đãi Hạng Vàng: tỷ lệ hoa hồng tối đa 18%. Nếu ca có Surge ưu đãi sàn thấp hơn (10%-15%) thì giữ mức thấp nhất có lợi cho Thợ
+      const baseCommRate = booking.commission_rate !== undefined && booking.commission_rate !== null ? parseFloat(booking.commission_rate) : 0.2000;
+      const commissionRate = isGoldTier ? Math.min(0.1800, baseCommRate) : baseCommRate;
       let commissionAmount = Math.max(
         0,
-        Math.round(parseFloat(booking.platform_commission) || (grossWage * commissionRate) || (totalPrice * 0.20))
+        Math.round(totalPrice * commissionRate)
       );
       if (commissionAmount <= 0 && totalPrice > 0) {
         commissionAmount = Math.round(totalPrice * 0.20);
