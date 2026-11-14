@@ -56,7 +56,10 @@ const standardAddons = {
   disinfect: { id: 'disinfect', name: 'Khử khuẩn Nano Bạc', price: 100000 },
   sofa_steam: { id: 'sofa_steam', name: 'Giặt đệm / Sofa hơi nóng', price: 200000 },
   calcium_remove: { id: 'calcium_remove', name: 'Tẩy cặn canxi kính & vách tắm', price: 120000 },
-  fridge_deep: { id: 'fridge_deep', name: 'Vệ sinh tủ lạnh / Lò vi sóng', price: 80000 }
+  fridge_deep: { id: 'fridge_deep', name: 'Vệ sinh tủ lạnh / Lò vi sóng', price: 80000 },
+  dabclean_kit: { id: 'dabclean_kit', name: '🧰 Bộ Hóa chất & Dụng cụ chuyên dụng DabClean', price: 30000 },
+  industrial_vacuum: { id: 'industrial_vacuum', name: '🌪️ Mang theo Máy hút bụi công nghiệp cầm tay', price: 50000 },
+  homeowner_tools: { id: 'homeowner_tools', name: '🏠 Chủ nhà tự chuẩn bị dụng cụ & hóa chất', price: 0 }
 };
 
 const pricingService = {
