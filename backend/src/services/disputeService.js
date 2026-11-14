@@ -190,24 +190,45 @@ const disputeService = {
       penaltyMessage = `Sự cố nặng (Tier 3): Quỹ Bảo Hiểm DabClean chi trả ${insuranceCoveredAmount.toLocaleString('vi-VN')} đ, thợ bồi thường phần trách nhiệm 500.000 đ, trừ 20 điểm tín nhiệm và tạm khóa nhận ca.`;
     }
 
-    // 1. Khấu trừ ví thợ (nếu có nguồn staff)
+    // 1. Khấu trừ ví thợ (Khấu trừ ví Thu nhập, nếu không đủ trừ tiếp sang ví Tín dụng)
     if (staffPenaltyAmount > 0) {
       try {
-        let staffWallets = await db.query('SELECT id, balance FROM wallets WHERE user_id = ? AND wallet_type = "wage" LIMIT 1', [dispute.staff_id]);
-        if (!staffWallets || staffWallets.length === 0) {
-          staffWallets = await db.query('SELECT id, balance FROM wallets WHERE user_id = ? LIMIT 1', [dispute.staff_id]);
-        }
-        const staffWalletId = staffWallets && staffWallets[0] ? staffWallets[0].id : 1;
-        const balBefore = staffWallets && staffWallets[0] ? Number(staffWallets[0].balance || 0) : 0;
-        const balAfter = balBefore - staffPenaltyAmount;
+        const wageWallets = await db.query('SELECT id, balance FROM wallets WHERE user_id = ? AND wallet_type = "wage" LIMIT 1', [dispute.staff_id]);
+        const creditWallets = await db.query('SELECT id, balance FROM wallets WHERE user_id = ? AND wallet_type = "credit" LIMIT 1', [dispute.staff_id]);
 
-        const codeTxStaff = 'PENALTY-' + Date.now() + '-' + dispute.id;
-        await db.query(
-          `INSERT INTO wallet_transactions (wallet_id, user_id, transaction_code, amount, balance_before, balance_after, type, status, description)
-           VALUES (?, ?, ?, ?, ?, ?, 'adjustment', 'completed', ?)`,
-          [staffWalletId, dispute.staff_id, codeTxStaff, -staffPenaltyAmount, balBefore, balAfter, `Khấu trừ đền bù sự cố đơn hàng #${dispute.booking_id} (Dispute #${dispute.id})`]
-        );
-        await db.query('UPDATE wallets SET balance = balance - ? WHERE id = ?', [staffPenaltyAmount, staffWalletId]);
+        const wageWallet = wageWallets && wageWallets[0] ? wageWallets[0] : null;
+        const creditWallet = creditWallets && creditWallets[0] ? creditWallets[0] : null;
+
+        let remainingPenalty = staffPenaltyAmount;
+
+        if (wageWallet) {
+          const currentWage = Number(wageWallet.balance || 0);
+          const deductFromWage = Math.min(Math.max(0, currentWage), remainingPenalty);
+          if (deductFromWage > 0 || !creditWallet) {
+            const actualWageDeduct = creditWallet ? deductFromWage : remainingPenalty;
+            const balAfter = currentWage - actualWageDeduct;
+            const codeTx = 'PENALTY-WAGE-' + Date.now() + '-' + dispute.id;
+            await db.query(
+              `INSERT INTO wallet_transactions (wallet_id, user_id, transaction_code, amount, balance_before, balance_after, type, status, description)
+               VALUES (?, ?, ?, ?, ?, ?, 'adjustment', 'completed', ?)`,
+              [wageWallet.id, dispute.staff_id, codeTx, -actualWageDeduct, currentWage, balAfter, `Khấu trừ đền bù sự cố đơn #${dispute.booking_id} từ ví thu nhập`]
+            );
+            await db.query('UPDATE wallets SET balance = balance - ? WHERE id = ?', [actualWageDeduct, wageWallet.id]);
+            remainingPenalty -= actualWageDeduct;
+          }
+        }
+
+        if (remainingPenalty > 0 && creditWallet) {
+          const currentCredit = Number(creditWallet.balance || 0);
+          const balAfter = currentCredit - remainingPenalty;
+          const codeTx = 'PENALTY-CREDIT-' + Date.now() + '-' + dispute.id;
+          await db.query(
+            `INSERT INTO wallet_transactions (wallet_id, user_id, transaction_code, amount, balance_before, balance_after, type, status, description)
+             VALUES (?, ?, ?, ?, ?, ?, 'adjustment', 'completed', ?)`,
+            [creditWallet.id, dispute.staff_id, codeTx, -remainingPenalty, currentCredit, balAfter, `Khấu trừ phần đền bù còn lại sự cố đơn #${dispute.booking_id} từ ví tín dụng`]
+          );
+          await db.query('UPDATE wallets SET balance = balance - ? WHERE id = ?', [remainingPenalty, creditWallet.id]);
+        }
       } catch (wErr) {
         console.error('[Dispute] Lỗi ghi transaction trừ ví thợ:', wErr.message);
       }

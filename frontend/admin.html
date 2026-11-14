@@ -3902,6 +3902,69 @@
       }
     };
 
+    
+    // Xử lý Modal Cấp phát đồ nghề
+    window.openAllocateModal = async function() {
+      try {
+        const modal = document.getElementById('modal-allocate-equipment');
+        const staffSelect = document.getElementById('allocate-staff-id');
+        const itemSelect = document.getElementById('allocate-item-id');
+
+        // Tải danh sách thợ và danh sách vật tư
+        const [staffRes, itemRes] = await Promise.all([
+          api.admin.getAllStaff(),
+          api.inventory.getAll()
+        ]);
+
+        staffSelect.innerHTML = '<option value="">-- Chọn thợ tiếp nhận --</option>' + 
+          staffRes.data.map(st => `<option value="${st.id}">#${st.id} - ${st.name} (${st.phone || st.email})</option>`).join('');
+
+        itemSelect.innerHTML = '<option value="">-- Chọn vật tư trong kho --</option>' + 
+          itemRes.data.map(it => `<option value="${it.id}">${it.item_code} - ${it.item_name} (Tồn: ${it.stock_quantity} ${it.unit})</option>`).join('');
+
+        modal.style.display = 'flex';
+      } catch (err) {
+        alert('Không thể mở modal cấp phát: ' + err.message);
+      }
+    };
+
+    window.closeAllocateModal = function() {
+      const modal = document.getElementById('modal-allocate-equipment');
+      if (modal) modal.style.display = 'none';
+    };
+
+    document.addEventListener('submit', async function(e) {
+      if (e.target && e.target.id === 'form-allocate-equipment') {
+        e.preventDefault();
+        const staffId = parseInt(document.getElementById('allocate-staff-id').value, 10);
+        const itemId = parseInt(document.getElementById('allocate-item-id').value, 10);
+        const quantity = parseInt(document.getElementById('allocate-quantity').value, 10);
+        const allocationType = document.getElementById('allocate-type').value;
+        const notes = document.getElementById('allocate-notes').value.trim();
+        const btn = document.getElementById('btn-submit-allocation');
+
+        try {
+          btn.disabled = true;
+          btn.textContent = 'Đang xuất kho...';
+          await api.inventory.allocate({
+            staffId,
+            itemId,
+            quantity,
+            allocationType,
+            notes
+          });
+          alert('Cấp phát đồ nghề cho nhân viên thành công!');
+          closeAllocateModal();
+          loadInventory();
+        } catch (err) {
+          alert('Lỗi: ' + err.message);
+        } finally {
+          btn.disabled = false;
+          btn.textContent = 'Xác nhận xuất kho & Cấp phát';
+        }
+      }
+    });
+
     window.loadInventory = async function() {
       try {
         const [invRes, allocRes] = await Promise.all([

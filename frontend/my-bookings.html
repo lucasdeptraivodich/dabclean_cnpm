@@ -1071,6 +1071,58 @@
       document.getElementById('tip-close-btn').addEventListener('click', closeTip);
       document.getElementById('tip-cancel-btn').addEventListener('click', closeTip);
 
+      // Gắn sự kiện Modal Khiếu nại sự cố
+      document.querySelectorAll('.btn-dispute-order').forEach(btn => {
+        btn.addEventListener('click', function() {
+          const id = this.dataset.id;
+          const code = this.dataset.code;
+          document.getElementById('dispute-booking-id').value = id;
+          document.getElementById('dispute-booking-code').textContent = code;
+          document.getElementById('dispute-modal').classList.add('active');
+        });
+      });
+
+      const closeDispute = () => {
+        const modal = document.getElementById('dispute-modal');
+        if (modal) modal.classList.remove('active');
+      };
+      const btnDisputeClose = document.getElementById('dispute-close-btn');
+      if (btnDisputeClose) btnDisputeClose.addEventListener('click', closeDispute);
+      const btnDisputeCancel = document.getElementById('dispute-cancel-btn');
+      if (btnDisputeCancel) btnDisputeCancel.addEventListener('click', closeDispute);
+
+      const disputeForm = document.getElementById('dispute-form');
+      if (disputeForm) {
+        disputeForm.addEventListener('submit', async function(e) {
+          e.preventDefault();
+          const bookingId = document.getElementById('dispute-booking-id').value;
+          const disputeType = document.getElementById('dispute-type').value;
+          const title = document.getElementById('dispute-title').value.trim();
+          const claimedAmount = parseFloat(document.getElementById('dispute-amount').value) || 0;
+          const description = document.getElementById('dispute-desc').value.trim();
+          const btn = document.getElementById('dispute-submit-btn');
+
+          try {
+            btn.disabled = true;
+            btn.textContent = 'Đang gửi...';
+            await api.disputes.create(bookingId, {
+              dispute_type: disputeType,
+              title: title,
+              claimed_amount: claimedAmount,
+              description: description,
+              evidence_photos: []
+            });
+            alert('Gửi khiếu nại thành công! Bộ phận Giám định DabClean sẽ liên hệ và giải quyết trong vòng 2 giờ.');
+            closeDispute();
+          } catch (err) {
+            alert('Lỗi: ' + err.message);
+          } finally {
+            btn.disabled = false;
+            btn.textContent = 'Gửi yêu cầu bồi thường';
+          }
+        });
+      }
+
       // Coupons modal events
       const openCoupons = () => document.getElementById('coupons-modal').classList.add('active');
       const closeCoupons = () => document.getElementById('coupons-modal').classList.remove('active');

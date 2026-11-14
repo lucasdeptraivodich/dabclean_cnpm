@@ -1512,6 +1512,42 @@
         if (equipBox) {
           equipBox.style.display = isBefore ? 'block' : 'none';
         }
+        
+        // Xử lý upload ảnh check-in dụng cụ & hóa chất
+        const equipInput = document.getElementById('equipment-photo-input');
+        const equipStatus = document.getElementById('equipment-photo-status');
+        if (equipInput && !equipInput.dataset.bound) {
+          equipInput.dataset.bound = 'true';
+          equipInput.addEventListener('change', async function() {
+            if (!this.files || !this.files[0]) return;
+            const file = this.files[0];
+            if (equipStatus) equipStatus.textContent = '⏳ Đang lưu ảnh dụng cụ...';
+            try {
+              const formData = new FormData();
+              formData.append('photo', file);
+              formData.append('area_name', 'Dụng cụ & Hóa chất');
+              formData.append('angle_id', 'equipment_kit');
+              formData.append('stage', 'before');
+
+              const res = await fetch(`/api/staff/tasks/${activePhotoTask.id}/photos`, {
+                method: 'POST',
+                headers: {
+                  'Authorization': 'Bearer ' + (localStorage.getItem('dabclean_token') || localStorage.getItem('token') || '')
+                },
+                body: formData
+              });
+              const data = await res.json();
+              if (data.success) {
+                if (equipStatus) equipStatus.textContent = '✅ Đã xác thực dụng cụ đạt chuẩn!';
+              } else {
+                if (equipStatus) equipStatus.textContent = '⚠️ ' + (data.message || 'Lỗi tải ảnh');
+              }
+            } catch (err) {
+              if (equipStatus) equipStatus.textContent = '⚠️ Lỗi: ' + err.message;
+            }
+          });
+        }
+
         const totalBefore = checklist.photos.filter(p => p.stage === 'before').length;
         const totalAfter = checklist.photos.filter(p => p.stage === 'after').length;
         const missingAfter = progress.missingAfterAngles.length;
