@@ -1,6 +1,18 @@
 # 🌿 DabClean - Nền Tảng Dịch Vụ Dọn Vệ Sinh Chuyên Nghiệp (Full-Stack)
 
+### Chạy Backend, AI và MySQL bằng Docker Compose
 
+Cài Docker Desktop, mở terminal tại thư mục gốc dự án, sau đó chạy:
+
+```powershell
+docker compose up -d --build
+```
+
+Frontend/API sẵn sàng tại `http://localhost:5000`; AI service nội bộ được gọi qua backend và MySQL chỉ nằm trong network Compose. Schema được nạp tự động vào database mới khi tạo volume `mysql_data`; các bảng chỉ được khởi tạo khi volume mới, không tự nạp lại lên volume đã có dữ liệu. Ảnh công việc nằm trong volume bền vững `job_photos` tại `/app/backend/uploads/job-photos`.
+
+Compose dùng mật khẩu MySQL mặc định chỉ dành cho máy local/demo; không dùng trên mạng công khai/production. Có thể đặt `DB_PASSWORD`, `MYSQL_ROOT_PASSWORD` và `JWT_SECRET` trong file `.env` ở thư mục gốc trước khi chạy. Nếu không đặt `JWT_SECRET`, backend tự sinh khóa ngẫu nhiên trong bộ nhớ; JWT sẽ hết hiệu lực khi backend khởi động lại. Phân tích ảnh cần 9Router hoạt động trên máy host tại cổng 20128; nếu cần khóa, đặt `AI_V32_ROUTER_API_KEY` trong `.env`. Trạng thái `healthy` của AI chỉ xác nhận HTTP service hoạt động, không xác nhận provider bên ngoài có cấu hình.
+
+Lệnh hữu ích: `docker compose ps`, `docker compose logs -f backend-api ai-module mysql-db`, `docker compose down`. `down` giữ dữ liệu volumes; không dùng `docker compose down -v` nếu cần giữ database/ảnh. Khi tạo database volume mới, `database/schema.sql` có lệnh `DROP TABLE IF EXISTS` nhưng chỉ chạy trên database vừa khởi tạo trống; không mount/chạy file này thủ công trên database có dữ liệu.
 
 ### Demo đặt lịch / nhân viên không cần MySQL
 

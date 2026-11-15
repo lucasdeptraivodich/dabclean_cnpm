@@ -1,0 +1,80 @@
+services:
+  mysql-db:
+    image: mysql:8.4
+    restart: unless-stopped
+    environment:
+      MYSQL_DATABASE: cleanova_db
+      MYSQL_USER: dabclean
+      MYSQL_PASSWORD: ${DB_PASSWORD:-dabclean-local}
+      MYSQL_ROOT_PASSWORD: ${MYSQL_ROOT_PASSWORD:-dabclean-local-root}
+    volumes:
+      - mysql_data:/var/lib/mysql
+      - ./database/schema.sql:/docker-entrypoint-initdb.d/01-schema.sql:ro
+      - ./database/seed.sql:/docker-entrypoint-initdb.d/02-seed.sql:ro
+    healthcheck:
+      test: ["CMD-SHELL", "mysqladmin ping -h 127.0.0.1 -u root -p\"$${MYSQL_ROOT_PASSWORD}\""]
+      interval: 5s
+      timeout: 5s
+      retries: 20
+      start_period: 20s
+
+  ai-module:
+    build:
+      context: .
+      dockerfile: Dockerfile.ai
+    restart: unless-stopped
+    environment:
+      PORT: 5100
+      HOST: 0.0.0.0
+      AI_V32_ENABLED: ${AI_V32_ENABLED:-true}
+      AI_V32_PROVIDER: 9router
+      AI_V32_ROUTER_URL: ${AI_V32_ROUTER_URL:-http://host.docker.internal:20128/v1}
+      AI_V32_ROUTER_MODEL: ${AI_V32_ROUTER_MODEL:-cx/gpt-6.1-sol}
+      AI_V32_ROUTER_API_KEY: ${AI_V32_ROUTER_API_KEY:-}
+    extra_hosts:
+      - "host.docker.internal:host-gateway"
+    expose:
+      - "5100"
+    healthcheck:
+      test: ["CMD", "node", "-e", "require('http').get('http://127.0.0.1:5100/api/ai/health',r=>process.exit(r.statusCode===200?0:1)).on('error',()=>process.exit(1))"]
+      interval: 10s
+      timeout: 5s
+      retries: 10
+      start_period: 10s
+
+  backend-api:
+    build:
+      context: .
+      dockerfile: Dockerfile.backend
+    restart: unless-stopped
+    environment:
+      NODE_ENV: development
+      DEMO_MODE: "false"
+      HOST: 0.0.0.0
+      PORT: 5000
+      DB_HOST: mysql-db
+      DB_PORT: 3306
+      DB_USER: dabclean
+      DB_PASSWORD: ${DB_PASSWORD:-dabclean-local}
+      DB_NAME: cleanova_db
+      JWT_SECRET: ${JWT_SECRET:-}
+      AI_MODULE_URL: http://ai-module:5100
+    ports:
+      - "${PORT:-5000}:5000"
+    volumes:
+      - job_photos:/app/backend/uploads/job-photos
+    depends_on:
+      mysql-db:
+        condition: service_healthy
+      ai-module:
+        condition: service_healthy
+    healthcheck:
+      test: ["CMD", "node", "-e", "require('http').get('http://127.0.0.1:5000/api/health',r=>process.exit(r.statusCode===200?0:1)).on('error',()=>process.exit(1))"]
+      interval: 10s
+      timeout: 5s
+      retries: 12
+      start_period: 30s
+
+volumes:
+  mysql_data:
+  job_photos:

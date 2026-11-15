@@ -1,0 +1,11 @@
+.git
+.vscode
+**/node_modules
+**/.env
+**/.env.*
+!**/.env.example
+backend/uploads
+ai-module/dataset
+ai-module/.cache
+ai-module/benchmark/private
+**/*.log

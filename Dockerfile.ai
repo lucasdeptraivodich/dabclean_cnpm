@@ -1,0 +1,12 @@
+FROM node:22-alpine
+ENV NODE_ENV=development
+WORKDIR /app/ai-module
+COPY ai-module/package.json ai-module/package-lock.json ./
+RUN npm ci --omit=dev
+COPY ai-module/server.js ./server.js
+COPY ai-module/src ./src
+COPY ai-module/public ./public
+COPY frontend/js/ai-v3.js /app/frontend/js/ai-v3.js
+COPY frontend/css/ai-v3.css /app/frontend/css/ai-v3.css
+EXPOSE 5100
+CMD ["npm", "start"]
