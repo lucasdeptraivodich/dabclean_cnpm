@@ -41,6 +41,8 @@ Thumbs.db
 # OS Generated Files
 Desktop.ini
 ehthumbs.db
+~$*
+*.tmp
 
 # Build output
 dist/

@@ -50,6 +50,16 @@ const VoucherModel = {
     if (!code) return { valid: false, discountAmount: 0, reason: 'Chưa nhập mã ưu đãi.' };
 
     const cleanCode = code.trim().toUpperCase();
+
+    // Quy tắc riêng cho DABCLEAN20 / CLEANOVA20: không áp dụng cho đơn định kỳ
+    if ((cleanCode === 'CLEANOVA20' || cleanCode === 'DABCLEAN20') && frequency !== 'once') {
+      return {
+        valid: false,
+        discountAmount: 0,
+        reason: `Mã ưu đãi ${cleanCode} chỉ áp dụng cho đơn đặt dịch vụ 1 lần và không áp dụng đồng thời với gói chiết khấu định kỳ.`
+      };
+    }
+
     const voucher = await this.getByCode(cleanCode);
 
     if (!voucher) {

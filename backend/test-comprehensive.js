@@ -40,6 +40,29 @@ function request(urlPath, options = {}) {
   });
 }
 
+let testServerInstance = null;
+async function ensureServer() {
+  try {
+    await request('/api/health');
+    console.log('⚡ [Test Setup] Đã phát hiện máy chủ DabClean đang chạy trên cổng 5000.');
+  } catch (err) {
+    console.log('⚡ [Test Setup] Khởi động máy chủ test nội bộ trên cổng 5000...');
+    const app = require('./src/app');
+    const db = require('./src/config/db');
+    const { initSocket } = require('./src/services/socketService');
+    await db.initDatabase();
+    testServerInstance = http.createServer(app);
+    initSocket(testServerInstance);
+    await new Promise((resolve, reject) => {
+      testServerInstance.listen(5000, '127.0.0.1', () => {
+        console.log('⚡ [Test Setup] Máy chủ test nội bộ đã sẵn sàng trên cổng 5000.');
+        resolve();
+      });
+      testServerInstance.once('error', reject);
+    });
+  }
+}
+
 async function runTestSuite() {
   console.log('============================================================');
   console.log('🧪 BẮT ĐẦU CHẠY BỘ KIỂM THỬ TOÀN DIỆN DabClean THEO AGENTS.MD');
@@ -95,6 +118,7 @@ async function runTestSuite() {
   // PHẦN 2: XÁC THỰC TÀI KHOẢN ĐĂNG NHẬP CHO INTEGRATION TESTS
   // ------------------------------------------------------------
   console.log('\n--- PHẦN 2: INTEGRATION & SECURITY TESTS TRÊN HỆ THỐNG THỰC TẾ ---');
+  await ensureServer();
 
   const adminLogin = await request('/api/auth/login', {
     method: 'POST',
@@ -155,6 +179,8 @@ async function runTestSuite() {
   });
   assert(selfLock.status === 400 && selfLock.body.message.includes('không thể tự vô hiệu hóa'), 'Bug 4: Admin bị chặn khi tự khóa chính mình qua PATCH /admin/users/:id');
 
+  const futureBookingDate = new Date(Date.now() + 7 * 86400000).toISOString().split('T')[0];
+
   // Bug 5: Chặn tạo dịch vụ giá âm & Chặn cộng dồn mã CLEANOVA20 với giảm giá tần suất
   const negPrice = await request('/api/admin/services', {
     method: 'POST',
@@ -168,7 +194,7 @@ async function runTestSuite() {
     headers: { Authorization: `Bearer ${customerToken}` },
     body: {
       service_id: 1,
-      booking_date: '2026-11-20',
+      booking_date: futureBookingDate,
       booking_time: '09:00',
       area_size: 'small',
       frequency: 'weekly',
@@ -202,7 +228,7 @@ async function runTestSuite() {
     headers: { Authorization: `Bearer ${customerToken}` },
     body: {
       service_id: 1,
-      booking_date: '2026-11-20',
+      booking_date: futureBookingDate,
       booking_time: '09:00',
       area_size: 'small',
       frequency: 'once',
@@ -227,7 +253,7 @@ async function runTestSuite() {
     headers: { Authorization: `Bearer ${customerToken}` },
     body: {
       service_id: 1,
-      booking_date: '2026-11-20',
+      booking_date: futureBookingDate,
       booking_time: '09:00',
       area_size: 'small',
       frequency: 'once',
@@ -343,6 +369,11 @@ async function runTestSuite() {
   console.log('\n============================================================');
   console.log(`🎯 KẾT QUẢ TỔNG HỢP: ${passed} PASS, ${failed} FAIL / TỔNG SỐ ${passed + failed} TESTS`);
   console.log('============================================================\n');
+
+  // Đóng server test nếu được tự khởi động
+  if (testServerInstance) {
+    try { testServerInstance.close(); } catch (e) {}
+  }
 
   if (failed > 0) {
     process.exit(1);

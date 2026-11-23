@@ -1,0 +1,77 @@
+name: DabClean CI/CD Pipeline (Quality & Security Assurance)
+
+on:
+  push:
+    branches: [ main, develop ]
+    tags: [ 'v*' ]
+  pull_request:
+    branches: [ main ]
+
+jobs:
+  backend-test-suite:
+    name: Backend Test Suite & Security Audit
+    runs-on: ubuntu-latest
+
+    services:
+      mysql:
+        image: mysql:8.0
+        env:
+          MYSQL_ROOT_PASSWORD: nhotnhot.com
+          MYSQL_DATABASE: cleanova_db
+        ports:
+          - 3306:3306
+        options: --health-cmd="mysqladmin ping" --health-interval=10s --health-timeout=5s --health-retries=5
+
+    steps:
+      - name: Checkout Codebase
+        uses: actions/checkout@v4
+
+      - name: Set up Node.js Environment (v20)
+        uses: actions/setup-node@v4
+        with:
+          node-version: '20'
+          cache: 'npm'
+          cache-dependency-path: 'backend/package-lock.json'
+
+      - name: Initialize Database Schema & Seed Data
+        run: |
+          mysql -h 127.0.0.1 -P 3306 -u root -pnhotnhot.com cleanova_db < database/schema.sql
+          mysql -h 127.0.0.1 -P 3306 -u root -pnhotnhot.com cleanova_db < database/seed.sql
+
+      - name: Install Backend Dependencies
+        working-directory: ./backend
+        run: npm ci || npm install
+
+      - name: Execute Comprehensive Test Suite (Unit, Integration, Security, Concurrency)
+        working-directory: ./backend
+        env:
+          NODE_ENV: test
+          DEMO_MODE: false
+          DB_HOST: 127.0.0.1
+          DB_USER: root
+          DB_PASSWORD: nhotnhot.com
+          DB_NAME: cleanova_db
+          DB_PORT: 3306
+          JWT_SECRET: dabclean_ci_secure_test_key_983274981729381723
+        run: npm test
+
+      - name: Verify AI Startup & Standalone Scanner Fallback
+        working-directory: ./backend
+        run: npm run test:ai
+
+  code-quality-and-syntax:
+    name: Code Quality & Syntax Verification
+    runs-on: ubuntu-latest
+
+    steps:
+      - name: Checkout Codebase
+        uses: actions/checkout@v4
+
+      - name: Set up Python for AI Module Verification
+        uses: actions/setup-python@v5
+        with:
+          python-version: '3.10'
+
+      - name: Verify Python Scripts Compilation
+        run: |
+          python -m compileall ai-module/
